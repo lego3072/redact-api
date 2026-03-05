@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RedactAPI — PII/PHI Redaction API for Developers</title>
+    <meta name="description" content="Redact PII and PHI from any document with one API call. POST a file, get back redacted text + a JSON manifest of all personal data found. HIPAA, GDPR, CCPA ready.">
+    <meta name="keywords" content="PII redaction API, PHI redaction, document redaction, HIPAA API, GDPR anonymization, PII detection, redact documents, data privacy API">
+    <link rel="canonical" href="https://redactapi.dev/">
+    <meta property="og:title" content="RedactAPI — PII/PHI Redaction API">
+    <meta property="og:description" content="Redact personal data from any document with one API call. Returns redacted text + structured PII manifest.">
+    <meta property="og:url" content="https://redactapi.dev/">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="RedactAPI — PII/PHI Redaction API">
+    <meta name="twitter:description" content="Redact PII/PHI from documents. One API call. JSON manifest + redacted text.">
+
+    <!-- JSON-LD: WebApplication -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "RedactAPI",
+        "url": "https://redactapi.dev",
+        "description": "PII/PHI Redaction API. POST a document, get back redacted text plus a JSON manifest of all personal data found with categories and confidence scores.",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Any",
+        "offers": [
+            {"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "50 pages/month"},
+            {"@type": "Offer", "name": "Starter", "price": "79", "priceCurrency": "USD", "description": "2,000 pages/month"},
+            {"@type": "Offer", "name": "Pro", "price": "299", "priceCurrency": "USD", "description": "10,000 pages/month"},
+            {"@type": "Offer", "name": "Scale", "price": "799", "priceCurrency": "USD", "description": "50,000 pages/month"}
+        ],
+        "featureList": [
+            "PII detection across 20+ categories",
+            "PHI redaction for HIPAA compliance",
+            "Confidence scores for each PII item",
+            "Batch redaction up to 20 files",
+            "PDF, image, DOCX, TXT support",
+            "Custom pattern redaction",
+            "Zero-shot — no training required",
+            "Structured JSON manifest output"
+        ]
+    }
+    </script>
+
+    <!-- JSON-LD: FAQPage -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "What types of PII does RedactAPI detect?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "RedactAPI detects 20+ categories including names, emails, phone numbers, SSNs, addresses, dates of birth, credit card numbers, medical record numbers, health insurance IDs, passport numbers, and more."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Is RedactAPI HIPAA compliant?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "RedactAPI is designed for HIPAA compliance workflows. It detects and redacts all 18 HIPAA identifiers from medical documents, lab results, and health records."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What file formats does RedactAPI support?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "RedactAPI supports PDF, PNG, JPEG, GIF, WEBP, DOCX, and TXT files up to 20MB."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Does RedactAPI require training or templates?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "No. RedactAPI uses zero-shot AI to detect PII in any document type without training data, templates, or configuration."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What does the redaction response include?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Each response includes: (1) the fully redacted document text, (2) a JSON array of every PII item found with its category, original text, replacement placeholder, and confidence score, and (3) a summary with total PII count, categories found, and risk level."
+                }
+            }
+        ]
+    }
+    </script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --border: #1e1e2e;
+            --text: #e4e4e7;
+            --muted: #71717a;
+            --accent: #ef4444;
+            --accent-hover: #dc2626;
+            --accent-soft: rgba(239, 68, 68, 0.1);
+            --green: #22c55e;
+            --blue: #3b82f6;
+            --yellow: #eab308;
+            --purple: #a855f7;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code, pre { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+        /* Nav */
+        nav { border-bottom: 1px solid var(--border); padding: 16px 0; position: sticky; top: 0; background: rgba(10,10,15,0.95); backdrop-filter: blur(12px); z-index: 100; }
+        nav .container { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 20px; font-weight: 700; color: var(--text); }
+        .logo span { color: var(--accent); }
+        .nav-links { display: flex; gap: 24px; align-items: center; }
+        .nav-links a { color: var(--muted); font-size: 14px; }
+        .nav-links a:hover { color: var(--text); text-decoration: none; }
+        .btn { display: inline-block; padding: 8px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: var(--accent-hover); text-decoration: none; }
+        .btn-outline { border: 1px solid var(--border); color: var(--text); background: transparent; }
+        .btn-outline:hover { border-color: var(--accent); text-decoration: none; }
+
+        /* Hero */
+        .hero { padding: 80px 0 60px; text-align: center; }
+        .hero h1 { font-size: 48px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; }
+        .hero h1 .highlight { background: linear-gradient(135deg, var(--accent), #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero p { font-size: 20px; color: var(--muted); max-width: 640px; margin: 0 auto 32px; }
+        .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        .hero-actions .btn { padding: 12px 28px; font-size: 16px; }
+        .badge-row { display: flex; gap: 12px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; border: 1px solid var(--border); color: var(--muted); background: var(--surface); }
+
+        /* Code demo */
+        .demo { padding: 60px 0; }
+        .demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .code-block { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+        .code-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+        .code-header span { font-size: 13px; color: var(--muted); font-weight: 600; }
+        .code-tabs { display: flex; gap: 0; }
+        .code-tab { padding: 8px 16px; font-size: 13px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; }
+        .code-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        pre { padding: 20px; overflow-x: auto; font-size: 13px; line-height: 1.7; }
+        .code-block pre { margin: 0; }
+        .string { color: #a5d6ff; }
+        .keyword { color: #ff7b72; }
+        .comment { color: #484f58; }
+        .number { color: #79c0ff; }
+        .key { color: #d2a8ff; }
+        .bracket { color: #8b949e; }
+
+        /* How it works */
+        .how-section { padding: 80px 0; border-top: 1px solid var(--border); }
+        .section-title { font-size: 32px; font-weight: 700; text-align: center; margin-bottom: 48px; }
+        .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+        .step { text-align: center; padding: 32px 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); font-size: 20px; font-weight: 700; margin-bottom: 16px; }
+        .step h3 { font-size: 18px; margin-bottom: 8px; }
+        .step p { color: var(--muted); font-size: 14px; }
+
+        /* Categories */
+        .categories { padding: 80px 0; border-top: 1px solid var(--border); }
+        .cat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .cat-item { padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; text-align: center; }
+        .cat-item .icon { font-size: 24px; margin-bottom: 8px; }
+        .cat-item .label { color: var(--muted); font-size: 12px; }
+
+        /* Pricing */
+        .pricing { padding: 80px 0; border-top: 1px solid var(--border); }
+        .pricing-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        .price-card { padding: 32px 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; text-align: center; }
+        .price-card.popular { border-color: var(--accent); position: relative; }
+        .price-card.popular::before { content: "POPULAR"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 12px; }
+        .price-card h3 { font-size: 20px; margin-bottom: 8px; }
+        .price-card .price { font-size: 36px; font-weight: 800; margin-bottom: 4px; }
+        .price-card .price span { font-size: 16px; color: var(--muted); font-weight: 400; }
+        .price-card .pages { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+        .price-card ul { list-style: none; text-align: left; margin-bottom: 24px; }
+        .price-card ul li { padding: 6px 0; font-size: 14px; color: var(--muted); }
+        .price-card ul li::before { content: "✓ "; color: var(--green); font-weight: 700; }
+
+        /* Compliance */
+        .compliance { padding: 80px 0; border-top: 1px solid var(--border); }
+        .compliance-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        .compliance-card { padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; text-align: center; }
+        .compliance-card h3 { font-size: 18px; margin-bottom: 8px; color: var(--accent); }
+        .compliance-card p { color: var(--muted); font-size: 13px; }
+
+        /* Signup modal */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 40px; max-width: 420px; width: 100%; }
+        .modal h2 { font-size: 24px; margin-bottom: 8px; }
+        .modal p { color: var(--muted); margin-bottom: 24px; font-size: 14px; }
+        .modal input { width: 100%; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 14px; margin-bottom: 12px; }
+        .modal .btn { width: 100%; text-align: center; padding: 12px; }
+        .modal .key-display { background: var(--bg); border: 1px solid var(--border); padding: 16px; border-radius: 8px; margin: 16px 0; word-break: break-all; font-family: monospace; font-size: 14px; color: var(--green); }
+
+        /* Footer */
+        footer { border-top: 1px solid var(--border); padding: 40px 0; text-align: center; color: var(--muted); font-size: 14px; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 32px; }
+            .demo-grid { grid-template-columns: 1fr; }
+            .steps { grid-template-columns: 1fr; }
+            .cat-grid { grid-template-columns: repeat(2, 1fr); }
+            .pricing-grid { grid-template-columns: 1fr; }
+            .compliance-grid { grid-template-columns: repeat(2, 1fr); }
+            .nav-links { gap: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="container">
+        <div class="logo"><span>Redact</span>API</div>
+        <div class="nav-links">
+            <a href="#how">How It Works</a>
+            <a href="#pricing">Pricing</a>
+            <a href="/docs">API Docs</a>
+            <a href="#" class="btn btn-primary" onclick="openSignup()">Get Free API Key</a>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+    <div class="container">
+        <h1>Redact PII from any document<br>with <span class="highlight">one API call</span></h1>
+        <p>POST a file. Get back redacted text + a JSON manifest of every piece of personal data found — with categories, confidence scores, and risk assessment.</p>
+        <div class="hero-actions">
+            <a href="#" class="btn btn-primary" onclick="openSignup()">Get Free API Key</a>
+            <a href="/docs" class="btn btn-outline">View API Docs</a>
+        </div>
+        <div class="badge-row">
+            <span class="badge">🔒 HIPAA Ready</span>
+            <span class="badge">🇪🇺 GDPR Compliant</span>
+            <span class="badge">📋 20+ PII Categories</span>
+            <span class="badge">⚡ Zero Setup</span>
+            <span class="badge">🆓 50 Free Pages/Month</span>
+        </div>
+    </div>
+</section>
+
+<!-- Code Demo -->
+<section class="demo">
+    <div class="container">
+        <div class="demo-grid">
+            <div class="code-block">
+                <div class="code-header">
+                    <span>REQUEST</span>
+                    <div class="code-tabs">
+                        <button class="code-tab active" onclick="showTab('curl')">cURL</button>
+                        <button class="code-tab" onclick="showTab('python')">Python</button>
+                        <button class="code-tab" onclick="showTab('node')">Node.js</button>
+                    </div>
+                </div>
+                <pre id="code-curl"><span class="keyword">curl</span> -X POST https://redactapi.dev/v1/redact \
+  -H <span class="string">"Authorization: Bearer rd_your_key"</span> \
+  -F <span class="string">"file=@medical_record.pdf"</span></pre>
+                <pre id="code-python" style="display:none"><span class="keyword">import</span> requests
+
+resp = requests.post(
+    <span class="string">"https://redactapi.dev/v1/redact"</span>,
+    headers={<span class="string">"Authorization"</span>: <span class="string">"Bearer rd_your_key"</span>},
+    files={<span class="string">"file"</span>: open(<span class="string">"medical_record.pdf"</span>, <span class="string">"rb"</span>)}
+)
+result = resp.json()
+<span class="keyword">print</span>(result[<span class="string">"summary"</span>])
+<span class="comment"># {'total_pii_count': 12, 'risk_level': 'high'}</span></pre>
+                <pre id="code-node" style="display:none"><span class="keyword">const</span> form = <span class="keyword">new</span> FormData();
+form.append(<span class="string">'file'</span>, fs.createReadStream(<span class="string">'medical_record.pdf'</span>));
+
+<span class="keyword">const</span> res = <span class="keyword">await</span> fetch(<span class="string">'https://redactapi.dev/v1/redact'</span>, {
+  method: <span class="string">'POST'</span>,
+  headers: { <span class="string">'Authorization'</span>: <span class="string">'Bearer rd_your_key'</span> },
+  body: form
+});
+<span class="keyword">const</span> data = <span class="keyword">await</span> res.json();
+console.log(data.summary);
+<span class="comment">// { total_pii_count: 12, risk_level: 'high' }</span></pre>
+            </div>
+
+            <div class="code-block">
+                <div class="code-header"><span>RESPONSE</span></div>
+                <pre><span class="bracket">{</span>
+  <span class="key">"success"</span>: <span class="keyword">true</span>,
+  <span class="key">"redacted_text"</span>: <span class="string">"Patient [PERSON_NAME_1] visited on
+  [DATE_OF_BIRTH_1]. SSN: [SSN_1].
+  Contact: [EMAIL_1], [PHONE_1]..."</span>,
+  <span class="key">"pii_found"</span>: [
+    <span class="bracket">{</span>
+      <span class="key">"original"</span>: <span class="string">"Jane Smith"</span>,
+      <span class="key">"category"</span>: <span class="string">"person_name"</span>,
+      <span class="key">"replacement"</span>: <span class="string">"[PERSON_NAME_1]"</span>,
+      <span class="key">"confidence"</span>: <span class="number">0.98</span>
+    <span class="bracket">}</span>,
+    <span class="bracket">{</span>
+      <span class="key">"original"</span>: <span class="string">"123-45-6789"</span>,
+      <span class="key">"category"</span>: <span class="string">"social_security_number"</span>,
+      <span class="key">"replacement"</span>: <span class="string">"[SSN_1]"</span>,
+      <span class="key">"confidence"</span>: <span class="number">0.99</span>
+    <span class="bracket">}</span>
+  ],
+  <span class="key">"summary"</span>: <span class="bracket">{</span>
+    <span class="key">"total_pii_count"</span>: <span class="number">12</span>,
+    <span class="key">"categories_found"</span>: [<span class="string">"person_name"</span>,
+      <span class="string">"ssn"</span>, <span class="string">"email"</span>, <span class="string">"phone"</span>],
+    <span class="key">"risk_level"</span>: <span class="string">"high"</span>
+  <span class="bracket">}</span>
+<span class="bracket">}</span></pre>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How it works -->
+<section class="how-section" id="how">
+    <div class="container">
+        <h2 class="section-title">How It Works</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Upload Document</h3>
+                <p>POST any PDF, image, DOCX, or TXT file to the /v1/redact endpoint with your API key.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>AI Scans for PII</h3>
+                <p>Claude AI analyzes the document, detecting 20+ categories of PII/PHI with confidence scores.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Get Redacted Output</h3>
+                <p>Receive fully redacted text + a JSON manifest of every PII item found, categorized and scored.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- PII Categories -->
+<section class="categories" id="categories">
+    <div class="container">
+        <h2 class="section-title">20+ PII Categories Detected</h2>
+        <div class="cat-grid">
+            <div class="cat-item"><div class="icon">👤</div>Person Names<div class="label">Full, first, last</div></div>
+            <div class="cat-item"><div class="icon">📧</div>Email Addresses<div class="label">All formats</div></div>
+            <div class="cat-item"><div class="icon">📱</div>Phone Numbers<div class="label">US & international</div></div>
+            <div class="cat-item"><div class="icon">🏠</div>Physical Addresses<div class="label">Full addresses</div></div>
+            <div class="cat-item"><div class="icon">🎂</div>Dates of Birth<div class="label">All date formats</div></div>
+            <div class="cat-item"><div class="icon">🔐</div>Social Security #<div class="label">SSN / TIN</div></div>
+            <div class="cat-item"><div class="icon">💳</div>Credit Card #<div class="label">All major networks</div></div>
+            <div class="cat-item"><div class="icon">🏦</div>Bank Accounts<div class="label">Account & routing</div></div>
+            <div class="cat-item"><div class="icon">🏥</div>Medical Record #<div class="label">MRN / Patient ID</div></div>
+            <div class="cat-item"><div class="icon">🛡️</div>Health Insurance ID<div class="label">Policy numbers</div></div>
+            <div class="cat-item"><div class="icon">🪪</div>Driver's License<div class="label">State IDs</div></div>
+            <div class="cat-item"><div class="icon">✈️</div>Passport Numbers<div class="label">All countries</div></div>
+            <div class="cat-item"><div class="icon">🌐</div>IP Addresses<div class="label">IPv4 & IPv6</div></div>
+            <div class="cat-item"><div class="icon">🚗</div>Vehicle IDs (VIN)<div class="label">17-character</div></div>
+            <div class="cat-item"><div class="icon">🏢</div>Employer ID (EIN)<div class="label">Federal EIN</div></div>
+            <div class="cat-item"><div class="icon">📝</div>Taxpayer IDs<div class="label">ITIN / TIN</div></div>
+            <div class="cat-item"><div class="icon">👆</div>Biometric Data<div class="label">References detected</div></div>
+            <div class="cat-item"><div class="icon">👤</div>Usernames<div class="label">Login credentials</div></div>
+            <div class="cat-item"><div class="icon">🔑</div>Passwords<div class="label">Plaintext detected</div></div>
+            <div class="cat-item"><div class="icon">🧩</div>Custom Patterns<div class="label">Your own rules</div></div>
+        </div>
+    </div>
+</section>
+
+<!-- Compliance -->
+<section class="compliance" id="compliance">
+    <div class="container">
+        <h2 class="section-title">Built for Compliance</h2>
+        <div class="compliance-grid">
+            <div class="compliance-card">
+                <h3>HIPAA</h3>
+                <p>Detects and redacts all 18 HIPAA identifiers from medical records, lab results, and health documents.</p>
+            </div>
+            <div class="compliance-card">
+                <h3>GDPR</h3>
+                <p>Anonymize personal data for right-to-erasure requests. Strip PII before cross-border data transfers.</p>
+            </div>
+            <div class="compliance-card">
+                <h3>CCPA</h3>
+                <p>Remove consumer personal information from documents before data sharing or analytics processing.</p>
+            </div>
+            <div class="compliance-card">
+                <h3>SOC 2</h3>
+                <p>Redact sensitive data in audit trails, support tickets, and internal logs for compliance reporting.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Pricing -->
+<section class="pricing" id="pricing">
+    <div class="container">
+        <h2 class="section-title">Simple, Usage-Based Pricing</h2>
+        <div class="pricing-grid">
+            <div class="price-card">
+                <h3>Free</h3>
+                <div class="price">$0</div>
+                <div class="pages">50 pages/month</div>
+                <ul>
+                    <li>All 20+ PII categories</li>
+                    <li>Confidence scores</li>
+                    <li>PDF, image, DOCX, TXT</li>
+                    <li>5 files per batch</li>
+                    <li>10MB file limit</li>
+                </ul>
+                <a href="#" class="btn btn-outline" onclick="openSignup()" style="width:100%;text-align:center;">Get Started Free</a>
+            </div>
+            <div class="price-card">
+                <h3>Starter</h3>
+                <div class="price">$79<span>/mo</span></div>
+                <div class="pages">2,000 pages/month</div>
+                <ul>
+                    <li>Everything in Free</li>
+                    <li>Custom patterns</li>
+                    <li>10 files per batch</li>
+                    <li>20MB file limit</li>
+                    <li>Email support</li>
+                </ul>
+                <a href="#" class="btn btn-primary" onclick="openSignup()" style="width:100%;text-align:center;">Start Trial</a>
+            </div>
+            <div class="price-card popular">
+                <h3>Pro</h3>
+                <div class="price">$299<span>/mo</span></div>
+                <div class="pages">10,000 pages/month</div>
+                <ul>
+                    <li>Everything in Starter</li>
+                    <li>20 files per batch</li>
+                    <li>Priority processing</li>
+                    <li>Webhook notifications</li>
+                    <li>Priority support</li>
+                </ul>
+                <a href="#" class="btn btn-primary" onclick="openSignup()" style="width:100%;text-align:center;">Start Trial</a>
+            </div>
+            <div class="price-card">
+                <h3>Scale</h3>
+                <div class="price">$799<span>/mo</span></div>
+                <div class="pages">50,000 pages/month</div>
+                <ul>
+                    <li>Everything in Pro</li>
+                    <li>Dedicated support</li>
+                    <li>Custom SLA</li>
+                    <li>Volume discounts</li>
+                    <li>SSO available</li>
+                </ul>
+                <a href="#" class="btn btn-outline" onclick="openSignup()" style="width:100%;text-align:center;">Contact Sales</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Signup Modal -->
+<div class="modal-overlay" id="signupModal">
+    <div class="modal">
+        <h2>Get Your Free API Key</h2>
+        <p>50 pages/month — no credit card required.</p>
+        <div id="signup-form">
+            <input type="email" id="signup-email" placeholder="you@company.com">
+            <button class="btn btn-primary" onclick="doSignup()" id="signup-btn">Get API Key</button>
+        </div>
+        <div id="signup-result" style="display:none;">
+            <p style="color:var(--green);font-weight:600;">Your API key:</p>
+            <div class="key-display" id="api-key-display"></div>
+            <p style="font-size:12px;color:var(--muted);margin-top:8px;">Save this key — it won't be shown again. Also sent to your email.</p>
+            <button class="btn btn-outline" onclick="closeSignup()" style="margin-top:16px;width:100%;text-align:center;">Close</button>
+        </div>
+    </div>
+</div>
+
+<footer>
+    <div class="container">
+        <p>&copy; 2026 RedactAPI. PII/PHI Redaction as a Service.</p>
+        <p style="margin-top:8px;">
+            <a href="/docs">API Docs</a> &middot;
+            <a href="/openapi.json">OpenAPI Spec</a> &middot;
+            <a href="/llms.txt">llms.txt</a>
+        </p>
+    </div>
+</footer>
+
+<script>
+function showTab(tab) {
+    document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('[id^="code-"]').forEach(p => p.style.display = 'none');
+    document.getElementById('code-' + tab).style.display = 'block';
+    event.target.classList.add('active');
+}
+
+function openSignup() {
+    event.preventDefault();
+    document.getElementById('signupModal').classList.add('active');
+    document.getElementById('signup-form').style.display = 'block';
+    document.getElementById('signup-result').style.display = 'none';
+}
+
+function closeSignup() {
+    document.getElementById('signupModal').classList.remove('active');
+}
+
+document.getElementById('signupModal').addEventListener('click', function(e) {
+    if (e.target === this) closeSignup();
+});
+
+async function doSignup() {
+    const email = document.getElementById('signup-email').value.trim();
+    if (!email || !email.includes('@')) { alert('Please enter a valid email'); return; }
+
+    const btn = document.getElementById('signup-btn');
+    btn.textContent = 'Creating...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (data.api_key) {
+            document.getElementById('api-key-display').textContent = data.api_key;
+            document.getElementById('signup-form').style.display = 'none';
+            document.getElementById('signup-result').style.display = 'block';
+        } else {
+            alert(data.detail || 'Something went wrong');
+        }
+    } catch (err) {
+        alert('Network error. Please try again.');
+    } finally {
+        btn.textContent = 'Get API Key';
+        btn.disabled = false;
+    }
+}
+</script>
+
+</body>
+</html>

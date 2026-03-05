@@ -1,0 +1,13 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.18
+anthropic==0.42.0
+stripe==11.4.1
+psycopg2-binary==2.9.10
+python-dotenv==1.0.1
+pydantic==2.10.4
+PyPDF2==3.0.1
+python-docx==1.1.2
+Pillow==11.1.0
+httpx==0.28.1
+resend>=2.5.0
