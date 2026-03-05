@@ -6,14 +6,22 @@
     <title>RedactAPI — PII/PHI Redaction API for Developers</title>
     <meta name="description" content="Redact PII and PHI from any document with one API call. POST a file, get back redacted text + a JSON manifest of all personal data found. HIPAA, GDPR, CCPA ready.">
     <meta name="keywords" content="PII redaction API, PHI redaction, document redaction, HIPAA API, GDPR anonymization, PII detection, redact documents, data privacy API">
-    <link rel="canonical" href="https://redactapi.dev/">
+    <link rel="canonical" href="{{BASE_URL}}/">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/logo-192.png">
     <meta property="og:title" content="RedactAPI — PII/PHI Redaction API">
     <meta property="og:description" content="Redact personal data from any document with one API call. Returns redacted text + structured PII manifest.">
-    <meta property="og:url" content="https://redactapi.dev/">
+    <meta property="og:url" content="{{BASE_URL}}/">
     <meta property="og:type" content="website">
+    <meta property="og:image" content="{{BASE_URL}}/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="RedactAPI — PII/PHI Redaction API">
     <meta name="twitter:description" content="Redact PII/PHI from documents. One API call. JSON manifest + redacted text.">
+    <meta name="twitter:image" content="{{BASE_URL}}/og-image.png">
 
     <!-- JSON-LD: WebApplication -->
     <script type="application/ld+json">
@@ -21,15 +29,13 @@
         "@context": "https://schema.org",
         "@type": "WebApplication",
         "name": "RedactAPI",
-        "url": "https://redactapi.dev",
+        "url": "{{BASE_URL}}",
         "description": "PII/PHI Redaction API. POST a document, get back redacted text plus a JSON manifest of all personal data found with categories and confidence scores.",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Any",
         "offers": [
-            {"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "50 pages/month"},
-            {"@type": "Offer", "name": "Starter", "price": "79", "priceCurrency": "USD", "description": "2,000 pages/month"},
-            {"@type": "Offer", "name": "Pro", "price": "299", "priceCurrency": "USD", "description": "10,000 pages/month"},
-            {"@type": "Offer", "name": "Scale", "price": "799", "priceCurrency": "USD", "description": "50,000 pages/month"}
+            {"@type": "Offer", "name": "Done-For-You Onboarding", "price": "2500", "priceCurrency": "USD", "description": "Implementation setup fee"},
+            {"@type": "Offer", "name": "Self-Setup Monthly", "price": "499", "priceCurrency": "USD", "description": "Monthly-only self-implementation plan"}
         ],
         "featureList": [
             "PII detection across 20+ categories",
@@ -228,8 +234,9 @@
         <div class="nav-links">
             <a href="#how">How It Works</a>
             <a href="#pricing">Pricing</a>
-            <a href="/docs">API Docs</a>
-            <a href="#" class="btn btn-primary" onclick="openSignup()">Get Free API Key</a>
+            <a href="/docs" style="{{DOCS_NAV_STYLE}}">API Docs</a>
+            <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Book Call</a>
+            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary">Pay Setup</a>
         </div>
     </div>
 </nav>
@@ -238,17 +245,18 @@
 <section class="hero">
     <div class="container">
         <h1>Redact PII from any document<br>with <span class="highlight">one API call</span></h1>
-        <p>POST a file. Get back redacted text + a JSON manifest of every piece of personal data found — with categories, confidence scores, and risk assessment.</p>
+        <p>Two launch paths: done-for-you onboarding or self-setup monthly. We keep the backend protected while you monetize compliant redaction workflows fast.</p>
         <div class="hero-actions">
-            <a href="#" class="btn btn-primary" onclick="openSignup()">Get Free API Key</a>
-            <a href="/docs" class="btn btn-outline">View API Docs</a>
+            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary">Done-For-You Setup</a>
+            <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline">Self-Setup Monthly</a>
+            <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Book Kickoff</a>
         </div>
         <div class="badge-row">
             <span class="badge">🔒 HIPAA Ready</span>
             <span class="badge">🇪🇺 GDPR Compliant</span>
             <span class="badge">📋 20+ PII Categories</span>
-            <span class="badge">⚡ Zero Setup</span>
-            <span class="badge">🆓 50 Free Pages/Month</span>
+            <span class="badge">⚡ API Key Protected</span>
+            <span class="badge">💳 Stripe Checkout Ready</span>
         </div>
     </div>
 </section>
@@ -261,18 +269,18 @@
                 <div class="code-header">
                     <span>REQUEST</span>
                     <div class="code-tabs">
-                        <button class="code-tab active" onclick="showTab('curl')">cURL</button>
-                        <button class="code-tab" onclick="showTab('python')">Python</button>
-                        <button class="code-tab" onclick="showTab('node')">Node.js</button>
+                        <button class="code-tab active" onclick="showTab('curl', this)">cURL</button>
+                        <button class="code-tab" onclick="showTab('python', this)">Python</button>
+                        <button class="code-tab" onclick="showTab('node', this)">Node.js</button>
                     </div>
                 </div>
-                <pre id="code-curl"><span class="keyword">curl</span> -X POST https://redactapi.dev/v1/redact \
+                <pre id="code-curl"><span class="keyword">curl</span> -X POST {{BASE_URL}}/v1/redact \
   -H <span class="string">"Authorization: Bearer rd_your_key"</span> \
   -F <span class="string">"file=@medical_record.pdf"</span></pre>
                 <pre id="code-python" style="display:none"><span class="keyword">import</span> requests
 
 resp = requests.post(
-    <span class="string">"https://redactapi.dev/v1/redact"</span>,
+    <span class="string">"{{BASE_URL}}/v1/redact"</span>,
     headers={<span class="string">"Authorization"</span>: <span class="string">"Bearer rd_your_key"</span>},
     files={<span class="string">"file"</span>: open(<span class="string">"medical_record.pdf"</span>, <span class="string">"rb"</span>)}
 )
@@ -282,7 +290,7 @@ result = resp.json()
                 <pre id="code-node" style="display:none"><span class="keyword">const</span> form = <span class="keyword">new</span> FormData();
 form.append(<span class="string">'file'</span>, fs.createReadStream(<span class="string">'medical_record.pdf'</span>));
 
-<span class="keyword">const</span> res = <span class="keyword">await</span> fetch(<span class="string">'https://redactapi.dev/v1/redact'</span>, {
+<span class="keyword">const</span> res = <span class="keyword">await</span> fetch(<span class="string">'{{BASE_URL}}/v1/redact'</span>, {
   method: <span class="string">'POST'</span>,
   headers: { <span class="string">'Authorization'</span>: <span class="string">'Bearer rd_your_key'</span> },
   body: form
@@ -409,140 +417,87 @@ console.log(data.summary);
         <h2 class="section-title">Simple, Usage-Based Pricing</h2>
         <div class="pricing-grid">
             <div class="price-card">
-                <h3>Free</h3>
-                <div class="price">$0</div>
-                <div class="pages">50 pages/month</div>
+                <h3>Done-For-You Onboarding</h3>
+                <div class="price">$2.5k</div>
+                <div class="pages">one-time setup + monthly</div>
                 <ul>
-                    <li>All 20+ PII categories</li>
-                    <li>Confidence scores</li>
-                    <li>PDF, image, DOCX, TXT</li>
-                    <li>5 files per batch</li>
-                    <li>10MB file limit</li>
+                    <li>We implement end-to-end</li>
+                    <li>Security hardening + QA rollout</li>
+                    <li>Kickoff call + launch handoff</li>
+                    <li>Best for hands-off operators</li>
                 </ul>
-                <a href="#" class="btn btn-outline" onclick="openSignup()" style="width:100%;text-align:center;">Get Started Free</a>
+                <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary" style="width:100%;text-align:center;">Pay Setup ($2.5k)</a>
             </div>
             <div class="price-card">
+                <h3>Self-Setup Monthly</h3>
+                <div class="price">$499<span>/mo</span></div>
+                <div class="pages">no onboarding fee</div>
+                <ul>
+                    <li>You integrate directly</li>
+                    <li>Same API + guardrails</li>
+                    <li>Best for technical teams</li>
+                    <li>Fastest path if you self-ship</li>
+                </ul>
+                <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline" style="width:100%;text-align:center;">Pay Monthly Only</a>
+            </div>
+            <div class="price-card popular">
                 <h3>Starter</h3>
                 <div class="price">$79<span>/mo</span></div>
                 <div class="pages">2,000 pages/month</div>
                 <ul>
-                    <li>Everything in Free</li>
-                    <li>Custom patterns</li>
-                    <li>10 files per batch</li>
-                    <li>20MB file limit</li>
-                    <li>Email support</li>
+                    <li>Core redaction API</li>
+                    <li>Confidence scores + risk labels</li>
+                    <li>Batch redaction</li>
+                    <li>Compliance-focused output</li>
                 </ul>
-                <a href="#" class="btn btn-primary" onclick="openSignup()" style="width:100%;text-align:center;">Start Trial</a>
+                <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary" style="width:100%;text-align:center;">Start with Starter</a>
             </div>
-            <div class="price-card popular">
+            <div class="price-card">
                 <h3>Pro</h3>
                 <div class="price">$299<span>/mo</span></div>
                 <div class="pages">10,000 pages/month</div>
                 <ul>
-                    <li>Everything in Starter</li>
-                    <li>20 files per batch</li>
+                    <li>Higher monthly volume</li>
                     <li>Priority processing</li>
-                    <li>Webhook notifications</li>
                     <li>Priority support</li>
+                    <li>Production-ready scale path</li>
                 </ul>
-                <a href="#" class="btn btn-primary" onclick="openSignup()" style="width:100%;text-align:center;">Start Trial</a>
-            </div>
-            <div class="price-card">
-                <h3>Scale</h3>
-                <div class="price">$799<span>/mo</span></div>
-                <div class="pages">50,000 pages/month</div>
-                <ul>
-                    <li>Everything in Pro</li>
-                    <li>Dedicated support</li>
-                    <li>Custom SLA</li>
-                    <li>Volume discounts</li>
-                    <li>SSO available</li>
-                </ul>
-                <a href="#" class="btn btn-outline" onclick="openSignup()" style="width:100%;text-align:center;">Contact Sales</a>
+                <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline" style="width:100%;text-align:center;">Start with Pro</a>
             </div>
         </div>
     </div>
 </section>
 
-<!-- Signup Modal -->
-<div class="modal-overlay" id="signupModal">
-    <div class="modal">
-        <h2>Get Your Free API Key</h2>
-        <p>50 pages/month — no credit card required.</p>
-        <div id="signup-form">
-            <input type="email" id="signup-email" placeholder="you@company.com">
-            <button class="btn btn-primary" onclick="doSignup()" id="signup-btn">Get API Key</button>
-        </div>
-        <div id="signup-result" style="display:none;">
-            <p style="color:var(--green);font-weight:600;">Your API key:</p>
-            <div class="key-display" id="api-key-display"></div>
-            <p style="font-size:12px;color:var(--muted);margin-top:8px;">Save this key — it won't be shown again. Also sent to your email.</p>
-            <button class="btn btn-outline" onclick="closeSignup()" style="margin-top:16px;width:100%;text-align:center;">Close</button>
+<section class="how-section">
+    <div class="container" style="text-align:center;">
+        <h2 class="section-title">Ready to Launch Redaction Revenue?</h2>
+        <p style="color:var(--muted);max-width:720px;margin:0 auto 20px;">Path A: pay setup and we implement. Path B: pay monthly and self-implement. Both paths include protected backend defaults.</p>
+        <div class="hero-actions">
+            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary">Pay Setup</a>
+            <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline">Pay Monthly</a>
+            <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Book Kickoff</a>
         </div>
     </div>
-</div>
+</section>
 
 <footer>
     <div class="container">
-        <p>&copy; 2026 RedactAPI. PII/PHI Redaction as a Service.</p>
+        <p>&copy; 2026 RedactAPI. A DataWeave INC portfolio company.</p>
         <p style="margin-top:8px;">
-            <a href="/docs">API Docs</a> &middot;
-            <a href="/openapi.json">OpenAPI Spec</a> &middot;
+            <a href="/docs" style="{{DOCS_NAV_STYLE}}">API Docs</a>
+            <span style="{{DOCS_NAV_STYLE}}">&middot;</span>
             <a href="/llms.txt">llms.txt</a>
         </p>
     </div>
 </footer>
 
 <script>
-function showTab(tab) {
+function showTab(tab, button) {
     document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('[id^="code-"]').forEach(p => p.style.display = 'none');
     document.getElementById('code-' + tab).style.display = 'block';
-    event.target.classList.add('active');
-}
-
-function openSignup() {
-    event.preventDefault();
-    document.getElementById('signupModal').classList.add('active');
-    document.getElementById('signup-form').style.display = 'block';
-    document.getElementById('signup-result').style.display = 'none';
-}
-
-function closeSignup() {
-    document.getElementById('signupModal').classList.remove('active');
-}
-
-document.getElementById('signupModal').addEventListener('click', function(e) {
-    if (e.target === this) closeSignup();
-});
-
-async function doSignup() {
-    const email = document.getElementById('signup-email').value.trim();
-    if (!email || !email.includes('@')) { alert('Please enter a valid email'); return; }
-
-    const btn = document.getElementById('signup-btn');
-    btn.textContent = 'Creating...';
-    btn.disabled = true;
-
-    try {
-        const res = await fetch('/api/signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-        const data = await res.json();
-        if (data.api_key) {
-            document.getElementById('api-key-display').textContent = data.api_key;
-            document.getElementById('signup-form').style.display = 'none';
-            document.getElementById('signup-result').style.display = 'block';
-        } else {
-            alert(data.detail || 'Something went wrong');
-        }
-    } catch (err) {
-        alert('Network error. Please try again.');
-    } finally {
-        btn.textContent = 'Get API Key';
-        btn.disabled = false;
+    if (button) {
+        button.classList.add('active');
     }
 }
 </script>

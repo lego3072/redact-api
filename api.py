@@ -13,15 +13,16 @@ import hashlib
 import secrets
 import logging
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 from typing import Optional
 
 import anthropic
 import stripe
 import httpx
 from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException, Request
-from fastapi.responses import JSONResponse, HTMLResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, HTMLResponse, PlainTextResponse, FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 from docx import Document
@@ -32,6 +33,14 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("redactapi")
 
+
+def env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 # --- Config ---
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
@@ -39,6 +48,15 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 BASE_URL = os.getenv("BASE_URL", "https://redactapi.dev")
+CALENDLY_URL = os.getenv("CALENDLY_URL", "https://calendly.com/joseph-varga")
+SETUP_PAYMENT_LINK = os.getenv("SETUP_PAYMENT_LINK", "https://buy.stripe.com/replace_setup_link")
+MONTHLY_PAYMENT_LINK = os.getenv("MONTHLY_PAYMENT_LINK", "https://buy.stripe.com/replace_monthly_link")
+INDEXNOW_KEY = os.getenv("INDEXNOW_KEY", "").strip()
+INTERNAL_PLAN_TOKEN = os.getenv("INTERNAL_PLAN_TOKEN", "").strip()
+PUBLIC_DOCS_ENABLED = env_bool("PUBLIC_DOCS_ENABLED", False)
+PUBLIC_DISCOVERY_ENABLED = env_bool("PUBLIC_DISCOVERY_ENABLED", True)
+SIGNUP_ENABLED = env_bool("SIGNUP_ENABLED", False)
+SELF_SERVE_CHECKOUT_ENABLED = env_bool("SELF_SERVE_CHECKOUT_ENABLED", False)
 
 STRIPE_STARTER_MONTHLY = os.getenv("STRIPE_STARTER_MONTHLY", "")
 STRIPE_PRO_MONTHLY = os.getenv("STRIPE_PRO_MONTHLY", "")
@@ -76,6 +94,9 @@ PII_CATEGORIES = [
     "password",
     "national_id",
 ]
+
+BASE_DIR = Path(__file__).resolve().parent
+LANDING_DIR = BASE_DIR / "landing"
 
 # --- Database ---
 db_conn = None
@@ -207,6 +228,41 @@ def log_redaction(api_key: str, filename: str, file_type: str, pii_count: int, c
         })
 
 
+def external_base_url(request: Optional[Request] = None) -> str:
+    if request:
+        proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+        host = request.headers.get("x-forwarded-host", request.headers.get("host", request.url.netloc))
+        return f"{proto}://{host}".rstrip("/")
+    return (BASE_URL or "https://redactapi.dev").rstrip("/")
+
+
+def payment_config() -> dict:
+    return {
+        "payment_ready": not SETUP_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_")
+        and not MONTHLY_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_"),
+        "setup_payment_link": SETUP_PAYMENT_LINK,
+        "monthly_payment_link": MONTHLY_PAYMENT_LINK,
+        "calendly_url": CALENDLY_URL,
+        "calendly_live": "calendly.com/your-team" not in CALENDLY_URL and "calendly.com/your-" not in CALENDLY_URL,
+    }
+
+
+def render_landing(filename: str, request: Optional[Request] = None) -> str:
+    page = LANDING_DIR / filename
+    if not page.exists():
+        return ""
+    html = page.read_text(encoding="utf-8")
+    base = external_base_url(request)
+    cfg = payment_config()
+    return (
+        html.replace("{{BASE_URL}}", base)
+        .replace("{{CALENDLY_URL}}", cfg["calendly_url"])
+        .replace("{{SETUP_PAYMENT_LINK}}", cfg["setup_payment_link"])
+        .replace("{{MONTHLY_PAYMENT_LINK}}", cfg["monthly_payment_link"])
+        .replace("{{DOCS_NAV_STYLE}}", "" if PUBLIC_DOCS_ENABLED else "display:none;")
+    )
+
+
 # --- Auth helper ---
 def authenticate(authorization: Optional[str] = None, x_api_key: Optional[str] = None) -> dict:
     api_key = None
@@ -226,7 +282,7 @@ def authenticate(authorization: Optional[str] = None, x_api_key: Optional[str] =
     if record["pages_used"] >= limits["pages_per_month"]:
         raise HTTPException(
             status_code=429,
-            detail=f"Monthly limit reached ({limits['pages_per_month']} pages on {plan} plan). Upgrade at {BASE_URL}/docs",
+            detail=f"Monthly limit reached ({limits['pages_per_month']} pages on {plan} plan). Upgrade at {BASE_URL}/#pricing",
         )
     return record
 
@@ -391,9 +447,12 @@ app = FastAPI(
     title="RedactAPI",
     description="PII/PHI Redaction as a Service. POST a document, get back redacted text + a JSON manifest of all PII found.",
     version="1.0.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
-app.mount("/landing", StaticFiles(directory="landing"), name="landing")
+app.mount("/landing", StaticFiles(directory=str(LANDING_DIR)), name="landing")
 
 
 @app.on_event("startup")
@@ -407,17 +466,77 @@ async def startup():
 # --- Health ---
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "redactapi", "version": "1.0.0"}
+    return {
+        "status": "ok",
+        "service": "redactapi",
+        "version": "1.0.0",
+        "payment_ready": payment_config()["payment_ready"],
+        "time": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 # --- Root redirect to landing ---
 @app.get("/", response_class=HTMLResponse)
-async def root():
-    try:
-        with open("landing/index.html", "r") as f:
-            return HTMLResponse(content=f.read())
-    except FileNotFoundError:
-        return HTMLResponse(content="<h1>RedactAPI</h1><p>PII/PHI Redaction as a Service</p>")
+async def root(request: Request):
+    html = render_landing("index.html", request)
+    if html:
+        return HTMLResponse(content=html)
+    return HTMLResponse(content="<h1>RedactAPI</h1><p>PII/PHI Redaction as a Service</p>")
+
+
+@app.head("/")
+async def root_head():
+    return Response(status_code=200)
+
+
+@app.get("/book")
+async def book():
+    return RedirectResponse(url=CALENDLY_URL, status_code=302)
+
+
+@app.get("/success", response_class=HTMLResponse)
+async def success(request: Request):
+    cfg = payment_config()
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>RedactAPI | Next Steps</title>
+      <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #07111f; color: #e6edf7; margin: 0; padding: 24px; }}
+        .card {{ max-width: 760px; margin: 24px auto; background: #10233b; border: 1px solid #1f3f67; border-radius: 14px; padding: 28px; }}
+        a {{ color: #6dd5ff; }}
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>You're In</h1>
+        <p>Choose your launch path and complete the next step.</p>
+        <ol>
+          <li><a href="{cfg['setup_payment_link']}" target="_blank" rel="noreferrer">Done-for-you setup: pay onboarding</a></li>
+          <li><a href="{cfg['monthly_payment_link']}" target="_blank" rel="noreferrer">Self-setup: pay monthly-only plan</a></li>
+          <li><a href="{cfg['calendly_url']}" target="_blank" rel="noreferrer">Book kickoff call</a></li>
+        </ol>
+      </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+
+
+@app.get("/launch-48h", response_class=HTMLResponse)
+async def launch_48h(request: Request):
+    token = (request.query_params.get("token") or "").strip()
+    if not INTERNAL_PLAN_TOKEN or token != INTERNAL_PLAN_TOKEN:
+        raise HTTPException(status_code=404, detail="Not found")
+    html = render_landing("launch-48h.html", request)
+    if not html:
+        raise HTTPException(status_code=404, detail="Not found")
+    resp = HTMLResponse(content=html)
+    resp.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return resp
 
 
 # --- Core: Redact endpoint ---
@@ -575,6 +694,8 @@ class SignupRequest(BaseModel):
 @app.post("/api/signup")
 async def signup(req: SignupRequest):
     """Get a free API key."""
+    if not SIGNUP_ENABLED:
+        raise HTTPException(status_code=403, detail="Self-serve signup is disabled")
     email = req.email.strip().lower()
     if not email or "@" not in email:
         raise HTTPException(status_code=400, detail="Valid email required")
@@ -609,7 +730,7 @@ async def signup(req: SignupRequest):
                         <pre>curl -X POST {BASE_URL}/v1/redact \\
   -H "Authorization: Bearer {api_key}" \\
   -F "file=@document.pdf"</pre>
-                        <p><a href="{BASE_URL}/docs">Full API docs →</a></p>
+                        <p><a href="{BASE_URL}/">Landing page →</a></p>
                         """,
                     },
                 )
@@ -627,6 +748,8 @@ class CheckoutRequest(BaseModel):
 @app.post("/api/checkout")
 async def create_checkout(req: CheckoutRequest):
     """Create a Stripe checkout session for plan upgrade."""
+    if not SELF_SERVE_CHECKOUT_ENABLED:
+        raise HTTPException(status_code=403, detail="Self-serve checkout is disabled")
     if not STRIPE_SECRET_KEY:
         raise HTTPException(status_code=503, detail="Billing not configured")
 
@@ -696,25 +819,45 @@ async def stripe_webhook(request: Request):
     return {"status": "ok"}
 
 
-# --- Static files ---
+# --- Public marketing config ---
+@app.get("/v1/public/config")
+async def public_config(request: Request):
+    return {
+        **payment_config(),
+        "public_base_url": external_base_url(request),
+        "product": "redactapi",
+        "time": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+# --- Static / discovery ---
 @app.get("/robots.txt", response_class=PlainTextResponse)
-async def robots_txt():
-    return f"""User-agent: *
+async def robots_txt(request: Request):
+    base = external_base_url(request)
+    if not PUBLIC_DISCOVERY_ENABLED:
+        return PlainTextResponse(content="User-agent: *\nDisallow: /\n")
+    return PlainTextResponse(
+        content=f"""User-agent: *
 Allow: /
+Disallow: /v1/
+Disallow: /api/
+Disallow: /docs
+Disallow: /openapi.json
+Disallow: /launch-48h
 
-Sitemap: {BASE_URL}/sitemap.xml
-
-# AI / LLM agents
 User-agent: GPTBot
 Allow: /
 
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
 User-agent: Claude-Web
-Allow: /
-
-User-agent: Applebot-Extended
-Allow: /
-
-User-agent: anthropic-ai
 Allow: /
 
 User-agent: CCBot
@@ -722,57 +865,159 @@ Allow: /
 
 User-agent: Google-Extended
 Allow: /
+
+Sitemap: {base}/sitemap.xml
 """
+    )
 
 
 @app.get("/llms.txt", response_class=PlainTextResponse)
-async def llms_txt():
-    try:
-        with open("landing/llms.txt", "r") as f:
-            return PlainTextResponse(content=f.read())
-    except FileNotFoundError:
+async def llms_txt(request: Request):
+    if not PUBLIC_DISCOVERY_ENABLED:
+        raise HTTPException(status_code=404, detail="Not found")
+    path = LANDING_DIR / "llms.txt"
+    if not path.exists():
         return PlainTextResponse(content="# RedactAPI\nPII/PHI Redaction as a Service")
+    content = path.read_text(encoding="utf-8").replace("{{BASE_URL}}", external_base_url(request))
+    return PlainTextResponse(content=content)
+
+
+@app.get("/llms-full.txt", response_class=PlainTextResponse)
+async def llms_full_txt(request: Request):
+    if not PUBLIC_DISCOVERY_ENABLED:
+        raise HTTPException(status_code=404, detail="Not found")
+    return await llms_txt(request)
+
+
+@app.get("/sitemap.xml", response_class=PlainTextResponse)
+async def sitemap(request: Request):
+    base = external_base_url(request)
+    urls = [f"{base}/", f"{base}/robots.txt"]
+    if PUBLIC_DISCOVERY_ENABLED:
+        urls.extend([f"{base}/llms.txt", f"{base}/llms-full.txt"])
+    rows = "\n".join([f"  <url><loc>{u}</loc></url>" for u in urls])
+    xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+{rows}
+</urlset>
+"""
+    return PlainTextResponse(content=xml, media_type="application/xml")
+
+
+@app.get("/indexnow-key.txt", response_class=PlainTextResponse)
+async def indexnow_key_file():
+    if not INDEXNOW_KEY:
+        raise HTTPException(status_code=404, detail="Not found")
+    return PlainTextResponse(content=f"{INDEXNOW_KEY}\n")
+
+
+@app.get("/{indexnow_key}.txt", response_class=PlainTextResponse)
+async def indexnow_key_alias(indexnow_key: str):
+    if not INDEXNOW_KEY or indexnow_key != INDEXNOW_KEY:
+        raise HTTPException(status_code=404, detail="Not found")
+    return PlainTextResponse(content=f"{INDEXNOW_KEY}\n")
 
 
 @app.get("/.well-known/ai-plugin.json")
-async def ai_plugin():
+async def ai_plugin(request: Request):
+    if not PUBLIC_DOCS_ENABLED:
+        raise HTTPException(status_code=404, detail="Not found")
+    base = external_base_url(request)
     return {
         "schema_version": "v1",
         "name_for_human": "RedactAPI",
         "name_for_model": "redactapi",
         "description_for_human": "Redact PII/PHI from documents. Upload a file, get back redacted text + manifest.",
-        "description_for_model": "API for redacting personally identifiable information (PII) and protected health information (PHI) from documents. Accepts PDF, images, DOCX, TXT. Returns redacted text and a JSON manifest of all PII found with categories and confidence scores.",
-        "api": {"type": "openapi", "url": f"{BASE_URL}/openapi.json"},
+        "description_for_model": "API for redacting personally identifiable information (PII) and protected health information (PHI) from documents.",
+        "api": {"type": "openapi", "url": f"{base}/openapi.json"},
         "auth": {"type": "service_http", "authorization_type": "bearer"},
-        "logo_url": f"{BASE_URL}/logo.png",
-        "contact_email": "support@redactapi.dev",
-        "legal_info_url": f"{BASE_URL}/terms",
+        "logo_url": f"{base}/logo-192.png",
+        "contact_email": "joseph@dataweaveai.com",
+        "legal_info_url": base,
     }
 
 
-# --- OpenAPI customization ---
 @app.get("/docs", response_class=HTMLResponse)
 async def custom_docs():
-    return HTMLResponse(content=f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>RedactAPI - API Documentation</title>
-        <meta charset="utf-8"/>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
-    </head>
-    <body>
-        <div id="swagger-ui"></div>
-        <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
-        <script>
-        SwaggerUIBundle({{
-            url: '/openapi.json',
-            dom_id: '#swagger-ui',
-            presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
-            layout: "StandaloneLayout"
-        }})
-        </script>
-    </body>
-    </html>
-    """)
+    if not PUBLIC_DOCS_ENABLED:
+        raise HTTPException(status_code=404, detail="Not found")
+    return HTMLResponse(
+        content="""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RedactAPI - API Documentation</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+</head>
+<body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script>
+    SwaggerUIBundle({
+        url: '/openapi.json',
+        dom_id: '#swagger-ui',
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+        layout: "StandaloneLayout"
+    })
+    </script>
+</body>
+</html>
+"""
+    )
+
+
+@app.get("/openapi.json")
+async def openapi_spec():
+    if not PUBLIC_DOCS_ENABLED:
+        raise HTTPException(status_code=404, detail="Not found")
+    return app.openapi()
+
+
+@app.get("/favicon.ico")
+async def favicon_ico():
+    p = LANDING_DIR / "favicon.ico"
+    if p.exists():
+        return FileResponse(p, media_type="image/x-icon")
+    raise HTTPException(status_code=404, detail="Not found")
+
+
+@app.get("/favicon-16.png")
+async def favicon_16():
+    p = LANDING_DIR / "favicon-16.png"
+    if p.exists():
+        return FileResponse(p, media_type="image/png")
+    raise HTTPException(status_code=404, detail="Not found")
+
+
+@app.get("/favicon-32.png")
+async def favicon_32():
+    p = LANDING_DIR / "favicon-32.png"
+    if p.exists():
+        return FileResponse(p, media_type="image/png")
+    raise HTTPException(status_code=404, detail="Not found")
+
+
+@app.get("/logo-192.png")
+async def logo_192():
+    p = LANDING_DIR / "logo-192.png"
+    if p.exists():
+        return FileResponse(p, media_type="image/png")
+    raise HTTPException(status_code=404, detail="Not found")
+
+
+@app.get("/logo-512.png")
+async def logo_512():
+    p = LANDING_DIR / "logo-512.png"
+    if p.exists():
+        return FileResponse(p, media_type="image/png")
+    raise HTTPException(status_code=404, detail="Not found")
+
+
+@app.get("/og-image.png")
+async def og_image():
+    p = LANDING_DIR / "og-image.png"
+    if p.exists():
+        return FileResponse(p, media_type="image/png")
+    raise HTTPException(status_code=404, detail="Not found")
