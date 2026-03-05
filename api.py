@@ -41,6 +41,28 @@ def env_bool(name: str, default: bool) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+async def send_followup_email(to_email: str, subject: str, html_body: str) -> bool:
+    if not RESEND_API_KEY or not to_email:
+        return False
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+                json={
+                    "from": FOLLOWUP_FROM_EMAIL,
+                    "to": [to_email],
+                    "subject": subject,
+                    "html": html_body,
+                },
+                timeout=10,
+            )
+            return resp.status_code == 200
+    except Exception as e:
+        logger.warning(f"Follow-up email failed to {to_email}: {e}")
+        return False
+
+
 # --- Config ---
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
@@ -51,6 +73,8 @@ BASE_URL = os.getenv("BASE_URL", "https://redactapi.dev")
 CALENDLY_URL = os.getenv("CALENDLY_URL", "https://calendly.com/joseph-varga")
 SETUP_PAYMENT_LINK = os.getenv("SETUP_PAYMENT_LINK", "https://buy.stripe.com/replace_setup_link")
 MONTHLY_PAYMENT_LINK = os.getenv("MONTHLY_PAYMENT_LINK", "https://buy.stripe.com/replace_monthly_link")
+FOLLOWUP_INBOX_EMAIL = os.getenv("FOLLOWUP_INBOX_EMAIL", "joseph@dataweaveai.com").strip()
+FOLLOWUP_FROM_EMAIL = os.getenv("FOLLOWUP_FROM_EMAIL", "RedactAPI <noreply@redactapi.dev>").strip()
 INDEXNOW_KEY = os.getenv("INDEXNOW_KEY", "").strip()
 INTERNAL_PLAN_TOKEN = os.getenv("INTERNAL_PLAN_TOKEN", "").strip()
 PUBLIC_DOCS_ENABLED = env_bool("PUBLIC_DOCS_ENABLED", False)
@@ -737,6 +761,18 @@ async def signup(req: SignupRequest):
         except Exception as e:
             logger.warning(f"Failed to send welcome email: {e}")
 
+    await send_followup_email(
+        FOLLOWUP_INBOX_EMAIL,
+        f"RedactAPI signup: {email}",
+        (
+            f"<p><b>New signup</b></p>"
+            f"<p><b>Email:</b> {email}</p>"
+            f"<p><b>Plan:</b> free</p>"
+            f"<p><b>Onboarding:</b> {SETUP_PAYMENT_LINK}</p>"
+            f"<p><b>Calendly:</b> {CALENDLY_URL}</p>"
+        ),
+    )
+
     return {"api_key": api_key, "plan": "free", "pages_per_month": 50}
 
 
@@ -771,6 +807,26 @@ async def create_checkout(req: CheckoutRequest):
             cancel_url=f"{BASE_URL}/?cancelled=true",
             customer_email=req.email,
             metadata={"plan": req.plan},
+        )
+        await send_followup_email(
+            req.email,
+            "Complete your RedactAPI plan upgrade",
+            (
+                f"<h2>You're almost done</h2>"
+                f"<p>Finish checkout to activate <b>{req.plan}</b> plan:</p>"
+                f"<p><a href=\"{session.url}\">{session.url}</a></p>"
+                f"<p>Need help? Book kickoff: <a href=\"{CALENDLY_URL}\">{CALENDLY_URL}</a></p>"
+            ),
+        )
+        await send_followup_email(
+            FOLLOWUP_INBOX_EMAIL,
+            f"RedactAPI checkout started: {req.plan}",
+            (
+                f"<p><b>Checkout started</b></p>"
+                f"<p><b>Email:</b> {req.email}</p>"
+                f"<p><b>Plan:</b> {req.plan}</p>"
+                f"<p><b>Checkout URL:</b> <a href=\"{session.url}\">{session.url}</a></p>"
+            ),
         )
         return {"checkout_url": session.url}
     except Exception as e:
