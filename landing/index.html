@@ -6,6 +6,11 @@
     <title>RedactAPI — PII/PHI Redaction API for Developers</title>
     <meta name="description" content="Redact PII and PHI from any document with one API call. POST a file, get back redacted text + a JSON manifest of all personal data found. HIPAA, GDPR, CCPA ready.">
     <meta name="keywords" content="PII redaction API, PHI redaction, document redaction, HIPAA API, GDPR anonymization, PII detection, redact documents, data privacy API">
+    <script>
+        window.META_PIXEL_ID = window.META_PIXEL_ID || "";
+        window.LINKEDIN_PARTNER_ID = window.LINKEDIN_PARTNER_ID || "";
+        window.GOOGLE_ADS_ID = window.GOOGLE_ADS_ID || "";
+    </script>
     <link rel="canonical" href="{{BASE_URL}}/">
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
@@ -193,6 +198,25 @@
         .price-card ul { list-style: none; text-align: left; margin-bottom: 24px; }
         .price-card ul li { padding: 6px 0; font-size: 14px; color: var(--muted); }
         .price-card ul li::before { content: "✓ "; color: var(--green); font-weight: 700; }
+        .proof-band {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin: 0 auto 18px;
+            max-width: 820px;
+            background: rgba(239, 68, 68, 0.07);
+        }
+        .proof-band .title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+        .risk-note { margin-top: 10px; font-size: 12px; color: var(--muted); text-align: left; }
+        .mobile-sticky-cta {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 999;
+            display: none; gap: 8px;
+            padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0));
+            background: rgba(10,10,15,0.96);
+            border-top: 1px solid var(--border);
+            backdrop-filter: blur(8px);
+        }
+        .mobile-sticky-cta .btn { flex: 1; text-align: center; padding: 10px 6px; }
 
         /* Compliance */
         .compliance { padding: 80px 0; border-top: 1px solid var(--border); }
@@ -223,6 +247,8 @@
             .pricing-grid { grid-template-columns: 1fr; }
             .compliance-grid { grid-template-columns: repeat(2, 1fr); }
             .nav-links { gap: 12px; }
+            .mobile-sticky-cta { display: flex; }
+            body { padding-bottom: 78px; }
         }
     </style>
 </head>
@@ -235,8 +261,8 @@
             <a href="#how">How It Works</a>
             <a href="#pricing">Pricing</a>
             <a href="/docs" style="{{DOCS_NAV_STYLE}}">API Docs</a>
-            <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Book Call</a>
-            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary">Pay Setup</a>
+            <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline" id="nav-call-btn">Book Call</a>
+            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="setup" id="nav-setup-btn">Pay Setup</a>
         </div>
     </div>
 </nav>
@@ -247,8 +273,8 @@
         <h1>Redact PII from any document<br>with <span class="highlight">one API call</span></h1>
         <p>Two launch paths: done-for-you onboarding or self-setup monthly. We keep the backend protected while you monetize compliant redaction workflows fast.</p>
         <div class="hero-actions">
-            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary">Done-For-You Setup</a>
-            <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline">Self-Setup Monthly</a>
+            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="setup" id="hero-setup-btn">Done-For-You Setup</a>
+            <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="monthly" id="hero-monthly-btn">Self-Setup Monthly</a>
             <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Book Kickoff</a>
         </div>
         <div class="badge-row">
@@ -415,6 +441,10 @@ console.log(data.summary);
 <section class="pricing" id="pricing">
     <div class="container">
         <h2 class="section-title">Simple, Usage-Based Pricing</h2>
+        <div class="proof-band">
+            <div class="title">Proof Block</div>
+            <p>Most conversions happen when mobile users see one clear path, add work email once, and complete checkout in a single redirect.</p>
+        </div>
         <div class="pricing-grid">
             <div class="price-card">
                 <h3>Done-For-You Onboarding</h3>
@@ -426,7 +456,8 @@ console.log(data.summary);
                     <li>Kickoff call + launch handoff</li>
                     <li>Best for hands-off operators</li>
                 </ul>
-                <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary" style="width:100%;text-align:center;">Pay Setup ($2.5k)</a>
+                <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="setup" id="pricing-setup-btn" style="width:100%;text-align:center;">Pay Setup ($2.5k)</a>
+                <p class="risk-note">Risk reversal: monthly continuation can be canceled anytime after launch month.</p>
             </div>
             <div class="price-card">
                 <h3>Self-Setup Monthly</h3>
@@ -438,7 +469,8 @@ console.log(data.summary);
                     <li>Best for technical teams</li>
                     <li>Fastest path if you self-ship</li>
                 </ul>
-                <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline" style="width:100%;text-align:center;">Pay Monthly Only</a>
+                <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="monthly" id="pricing-monthly-btn" style="width:100%;text-align:center;">Pay Monthly Only</a>
+                <p class="risk-note">Risk reversal: self-setup monthly can be canceled any time.</p>
             </div>
             <div class="price-card popular">
                 <h3>Starter</h3>
@@ -450,7 +482,7 @@ console.log(data.summary);
                     <li>Batch redaction</li>
                     <li>Compliance-focused output</li>
                 </ul>
-                <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary" style="width:100%;text-align:center;">Start with Starter</a>
+                <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="starter" id="pricing-starter-btn" style="width:100%;text-align:center;">Start with Starter</a>
             </div>
             <div class="price-card">
                 <h3>Pro</h3>
@@ -462,7 +494,7 @@ console.log(data.summary);
                     <li>Priority support</li>
                     <li>Production-ready scale path</li>
                 </ul>
-                <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline" style="width:100%;text-align:center;">Start with Pro</a>
+                <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="pro" id="pricing-pro-btn" style="width:100%;text-align:center;">Start with Pro</a>
             </div>
         </div>
     </div>
@@ -479,6 +511,11 @@ console.log(data.summary);
         </div>
     </div>
 </section>
+
+<div class="mobile-sticky-cta" id="mobile-sticky-cta">
+    <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="setup" id="sticky-setup-btn">Pay Setup</a>
+    <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="monthly" id="sticky-monthly-btn">Pay Monthly</a>
+</div>
 
 <footer>
     <div class="container">
@@ -498,6 +535,69 @@ function showTab(tab, button) {
         button.classList.add('active');
     }
 }
+
+function validEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+}
+
+function appendPrefilledEmail(url, email) {
+    try {
+        const parsed = new URL(url, window.location.origin);
+        parsed.searchParams.set('prefilled_email', email);
+        return parsed.toString();
+    } catch (_) {
+        return url;
+    }
+}
+
+function getCheckoutEmail() {
+    const stored = (localStorage.getItem('redact_checkout_email') || '').trim().toLowerCase();
+    if (validEmail(stored)) return stored;
+    const prompted = String(window.prompt('Enter your work email to continue to checkout:') || '').trim().toLowerCase();
+    if (!validEmail(prompted)) return '';
+    localStorage.setItem('redact_checkout_email', prompted);
+    return prompted;
+}
+
+function installCheckoutEmailGate() {
+    document.querySelectorAll('.checkout-link').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            const email = getCheckoutEmail();
+            if (!email) {
+                event.preventDefault();
+                return;
+            }
+            link.href = appendPrefilledEmail(link.href, email);
+        });
+    });
+}
+
+function installRetargetingPixels() {
+    const metaId = window.META_PIXEL_ID || '';
+    if (metaId) {
+        !(function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+        n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+        n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+        t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)})(window, document,'script',
+        'https://connect.facebook.net/en_US/fbevents.js');
+        window.fbq('init', metaId);
+        window.fbq('track', 'PageView');
+    }
+
+    const linkedinId = window.LINKEDIN_PARTNER_ID || '';
+    if (linkedinId) {
+        window._linkedin_data_partner_ids = window._linkedin_data_partner_ids || [];
+        window._linkedin_data_partner_ids.push(linkedinId);
+        const s = document.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'https://snap.licdn.com/li.lms-analytics/insight.min.js';
+        document.head.appendChild(s);
+    }
+}
+
+installRetargetingPixels();
+installCheckoutEmailGate();
 </script>
 
 </body>

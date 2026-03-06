@@ -12,6 +12,7 @@ import base64
 import hashlib
 import secrets
 import logging
+import asyncio
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
@@ -119,6 +120,53 @@ async def send_paid_checkout_alert(*, buyer_email: str, plan: str, session_id: s
     await send_sms_alert(
         f"RedactAPI paid: {plan}, {safe_email}, {amount_text}, session {session_id}"
     )
+
+
+def schedule_abandoned_checkout_sequence(*, session_id: str, buyer_email: str, plan: str, checkout_url: str) -> None:
+    """Send 3-touch checkout recovery sequence for unpaid open sessions."""
+    if not buyer_email or not session_id:
+        return
+
+    async def _runner() -> None:
+        touchpoints = [
+            (10 * 60, "10-minute"),
+            (6 * 60 * 60, "6-hour"),
+            (24 * 60 * 60, "24-hour"),
+        ]
+        for delay_seconds, label in touchpoints:
+            await asyncio.sleep(delay_seconds)
+            try:
+                session = stripe.checkout.Session.retrieve(session_id)
+                payment_status = (session.get("payment_status") or "").lower()
+                status = (session.get("status") or "").lower()
+                if payment_status == "paid" or status in {"complete", "expired"}:
+                    return
+            except Exception as e:
+                logger.warning(f"Abandonment check failed for {session_id}: {e}")
+                return
+
+            await send_followup_email(
+                buyer_email,
+                f"Finish your RedactAPI {plan} checkout",
+                (
+                    f"<h2>Your checkout is still open</h2>"
+                    f"<p>This is your {label} reminder. Complete checkout to activate <b>{plan}</b>:</p>"
+                    f"<p><a href=\"{checkout_url}\">{checkout_url}</a></p>"
+                    f"<p>Need help? Book kickoff: <a href=\"{CALENDLY_URL}\">{CALENDLY_URL}</a></p>"
+                ),
+            )
+            await send_followup_email(
+                FOLLOWUP_INBOX_EMAIL,
+                f"RedactAPI abandoned checkout reminder sent ({label})",
+                (
+                    f"<p><b>Reminder:</b> {label}</p>"
+                    f"<p><b>Email:</b> {buyer_email}</p>"
+                    f"<p><b>Plan:</b> {plan}</p>"
+                    f"<p><b>Session:</b> {session_id}</p>"
+                ),
+            )
+
+    asyncio.create_task(_runner())
 
 
 # --- Config ---
@@ -888,6 +936,22 @@ async def create_checkout(req: CheckoutRequest):
                 f"<p><a href=\"{session.url}\">{session.url}</a></p>"
                 f"<p>Need help? Book kickoff: <a href=\"{CALENDLY_URL}\">{CALENDLY_URL}</a></p>"
             ),
+        )
+        await send_followup_email(
+            FOLLOWUP_INBOX_EMAIL,
+            f"RedactAPI checkout started: {req.plan}",
+            (
+                f"<p><b>Checkout started</b></p>"
+                f"<p><b>Email:</b> {req.email}</p>"
+                f"<p><b>Plan:</b> {req.plan}</p>"
+                f"<p><b>Session:</b> {session.id}</p>"
+            ),
+        )
+        schedule_abandoned_checkout_sequence(
+            session_id=session.id,
+            buyer_email=req.email,
+            plan=req.plan,
+            checkout_url=session.url,
         )
         return {"checkout_url": session.url}
     except Exception as e:
