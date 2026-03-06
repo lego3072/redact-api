@@ -1436,10 +1436,12 @@ async def custom_docs():
 
 
 @app.get("/openapi.json")
-async def openapi_spec():
+async def openapi_spec(request: Request):
     if not PUBLIC_DOCS_ENABLED:
         raise HTTPException(status_code=404, detail="Not found")
-    return app.openapi()
+    spec = app.openapi()
+    spec["servers"] = [{"url": external_base_url(request)}]
+    return spec
 
 
 @app.get("/favicon.ico")
