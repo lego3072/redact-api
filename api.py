@@ -179,6 +179,9 @@ BASE_URL = os.getenv("BASE_URL", "https://redactapi.dev")
 CALENDLY_URL = os.getenv("CALENDLY_URL", "https://calendly.com/joseph-varga")
 SETUP_PAYMENT_LINK = os.getenv("SETUP_PAYMENT_LINK", "https://buy.stripe.com/replace_setup_link")
 MONTHLY_PAYMENT_LINK = os.getenv("MONTHLY_PAYMENT_LINK", "https://buy.stripe.com/replace_monthly_link")
+STARTER_PAYMENT_LINK = os.getenv("STARTER_PAYMENT_LINK", MONTHLY_PAYMENT_LINK)
+PRO_PAYMENT_LINK = os.getenv("PRO_PAYMENT_LINK", MONTHLY_PAYMENT_LINK)
+SCALE_PAYMENT_LINK = os.getenv("SCALE_PAYMENT_LINK", MONTHLY_PAYMENT_LINK)
 FOLLOWUP_INBOX_EMAIL = os.getenv("FOLLOWUP_INBOX_EMAIL", "joseph@dataweaveai.com").strip()
 FOLLOWUP_FROM_EMAIL = os.getenv("FOLLOWUP_FROM_EMAIL", "RedactAPI <noreply@redactapi.dev>").strip()
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
@@ -387,9 +390,15 @@ def external_base_url(request: Optional[Request] = None) -> str:
 def payment_config() -> dict:
     return {
         "payment_ready": not SETUP_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_")
-        and not MONTHLY_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_"),
+        and not MONTHLY_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_")
+        and not STARTER_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_")
+        and not PRO_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_")
+        and not SCALE_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_"),
         "setup_payment_link": SETUP_PAYMENT_LINK,
         "monthly_payment_link": MONTHLY_PAYMENT_LINK,
+        "starter_payment_link": STARTER_PAYMENT_LINK,
+        "pro_payment_link": PRO_PAYMENT_LINK,
+        "scale_payment_link": SCALE_PAYMENT_LINK,
         "calendly_url": CALENDLY_URL,
         "calendly_live": "calendly.com/your-team" not in CALENDLY_URL and "calendly.com/your-" not in CALENDLY_URL,
     }
@@ -407,6 +416,9 @@ def render_landing(filename: str, request: Optional[Request] = None) -> str:
         .replace("{{CALENDLY_URL}}", cfg["calendly_url"])
         .replace("{{SETUP_PAYMENT_LINK}}", cfg["setup_payment_link"])
         .replace("{{MONTHLY_PAYMENT_LINK}}", cfg["monthly_payment_link"])
+        .replace("{{STARTER_PAYMENT_LINK}}", cfg["starter_payment_link"])
+        .replace("{{PRO_PAYMENT_LINK}}", cfg["pro_payment_link"])
+        .replace("{{SCALE_PAYMENT_LINK}}", cfg["scale_payment_link"])
         .replace("{{DOCS_NAV_STYLE}}", "" if PUBLIC_DOCS_ENABLED else "display:none;")
     )
 
