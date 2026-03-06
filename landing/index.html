@@ -167,6 +167,44 @@
         .bundle-strip .actions { display: flex; flex-wrap: wrap; gap: 8px; }
         .bundle-strip .actions a { padding: 7px 12px; font-size: 12px; border-radius: 8px; }
 
+        .roi-proof-shared {
+            margin: 14px auto 0;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            background: rgba(239, 68, 68, 0.08);
+        }
+        .roi-proof-shared h2 {
+            margin: 0 0 6px;
+            font-size: 1.12rem;
+        }
+        .roi-proof-shared p {
+            margin: 0 0 10px;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+        .roi-proof-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .roi-proof-card {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.2);
+        }
+        .roi-proof-card .n {
+            font-size: 1.6rem;
+            line-height: 1;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+        .roi-proof-card .l {
+            color: var(--muted);
+            font-size: 0.83rem;
+        }
+
         /* Hero */
         .hero { padding: 60px 0 60px; text-align: center; }
         .hero h1 { font-size: 48px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; }
@@ -278,6 +316,7 @@
             .cat-grid { grid-template-columns: repeat(2, 1fr); }
             .pricing-grid { grid-template-columns: 1fr; }
             .compliance-grid { grid-template-columns: repeat(2, 1fr); }
+            .roi-proof-grid { grid-template-columns: 1fr; }
             .nav-links { gap: 12px; }
             .mobile-sticky-cta { display: flex; }
             body { padding-bottom: 78px; }
@@ -308,8 +347,29 @@
             <small>Extract + Redact + Check + Agent Router deployed as one revenue stack.</small>
         </div>
         <div class="actions">
-            <a href="{{AGENT_ROUTER_BUNDLE_MONTHLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-primary">Start Bundle ($656/mo)</a>
-            <a href="{{AGENT_ROUTER_BUNDLE_FULL_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Full Launch ($3,156)</a>
+            <a href="{{AGENT_ROUTER_BUNDLE_MONTHLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-primary">Start Bundle In Stripe</a>
+            <a href="{{AGENT_ROUTER_BUNDLE_FULL_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Lock Full Launch In Stripe</a>
+        </div>
+    </div>
+</section>
+
+<section class="container">
+    <div class="roi-proof-shared">
+        <h2>ROI Proof For Fast-Close Buyers</h2>
+        <p>Example assumptions for speed of decision, not guarantees of outcomes.</p>
+        <div class="roi-proof-grid">
+            <article class="roi-proof-card">
+                <div class="n">$948/yr</div>
+                <div class="l">Starter annual cost at $79/month.</div>
+            </article>
+            <article class="roi-proof-card">
+                <div class="n">$10.8k/yr</div>
+                <div class="l">If 400 docs/mo x 3 min manual redaction at $45/hr.</div>
+            </article>
+            <article class="roi-proof-card">
+                <div class="n">11.4x</div>
+                <div class="l">Illustrative labor ROI vs Starter plan cost.</div>
+            </article>
         </div>
     </div>
 </section>
@@ -318,12 +378,12 @@
 <section class="hero">
     <div class="container">
         <div class="bundle-badge">Bundle now: $656/mo, or full launch at $3,156 today then $656/mo</div>
-        <h1>Redact PII from any document<br>with <span class="highlight">one API call</span></h1>
-        <p>Start with self-setup monthly (no call required). Add done-for-you onboarding only if you want full implementation handled for you.</p>
+        <h1>Redact sensitive data before it becomes a compliance or trust problem</h1>
+        <p>Deploy production redaction fast. Start monthly in Stripe, then scale when volume grows.</p>
         <div class="hero-actions">
-            <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="monthly" id="hero-monthly-btn">Start Monthly ($79)</a>
+            <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="monthly" id="hero-monthly-btn">Start Monthly In Stripe ($79)</a>
             <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="setup" id="hero-setup-btn">Add DFY Setup ($2.5k)</a>
-            <a href="{{AGENT_ROUTER_BUNDLE_MONTHLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Start 4-Tool Bundle ($656/mo)</a>
+            <a href="{{AGENT_ROUTER_BUNDLE_MONTHLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Start 4-Tool Bundle In Stripe</a>
             <a href="{{AGENT_ROUTER_BUNDLE_DASHBOARD_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Bundle Dashboard</a>
             <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Need Help? Book Call</a>
         </div>
