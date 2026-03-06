@@ -40,7 +40,7 @@
         "operatingSystem": "Any",
         "offers": [
             {"@type": "Offer", "name": "Done-For-You Onboarding", "price": "2500", "priceCurrency": "USD", "description": "Implementation setup fee"},
-            {"@type": "Offer", "name": "Self-Setup Monthly", "price": "499", "priceCurrency": "USD", "description": "Monthly-only self-implementation plan"}
+            {"@type": "Offer", "name": "Self-Setup Monthly", "price": "79", "priceCurrency": "USD", "description": "Monthly self-implementation plan (Starter tier)"}
         ],
         "featureList": [
             "PII detection across 20+ categories",
@@ -461,13 +461,13 @@ console.log(data.summary);
             </div>
             <div class="price-card">
                 <h3>Self-Setup Monthly</h3>
-                <div class="price">$499<span>/mo</span></div>
+                <div class="price">$79<span>/mo</span></div>
                 <div class="pages">no onboarding fee</div>
                 <ul>
                     <li>You integrate directly</li>
                     <li>Same API + guardrails</li>
                     <li>Best for technical teams</li>
-                    <li>Fastest path if you self-ship</li>
+                    <li>Includes Starter tier limits</li>
                 </ul>
                 <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="monthly" id="pricing-monthly-btn" style="width:100%;text-align:center;">Pay Monthly Only</a>
                 <p class="risk-note">Risk reversal: self-setup monthly can be canceled any time.</p>
@@ -485,16 +485,16 @@ console.log(data.summary);
                 <a href="{{STARTER_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="starter" id="pricing-starter-btn" style="width:100%;text-align:center;">Start with Starter</a>
             </div>
             <div class="price-card">
-                <h3>Pro</h3>
-                <div class="price">$299<span>/mo</span></div>
-                <div class="pages">10,000 pages/month</div>
+                <h3>Scale</h3>
+                <div class="price">$799<span>/mo</span></div>
+                <div class="pages">50,000 pages/month</div>
                 <ul>
-                    <li>Higher monthly volume</li>
+                    <li>Enterprise-volume throughput</li>
                     <li>Priority processing</li>
                     <li>Priority support</li>
-                    <li>Production-ready scale path</li>
+                    <li>Best for production-heavy workloads</li>
                 </ul>
-                <a href="{{PRO_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="pro" id="pricing-pro-btn" style="width:100%;text-align:center;">Start with Pro</a>
+                <a href="{{SCALE_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="scale" id="pricing-scale-btn" style="width:100%;text-align:center;">Start with Scale</a>
             </div>
         </div>
     </div>
