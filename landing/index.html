@@ -6,6 +6,7 @@
     <title>RedactAPI — PII/PHI Redaction API for Developers</title>
     <meta name="description" content="Redact PII and PHI from any document with one API call. POST a file, get back redacted text + a JSON manifest of all personal data found. HIPAA, GDPR, CCPA ready.">
     <meta name="keywords" content="PII redaction API, PHI redaction, document redaction, HIPAA API, GDPR anonymization, PII detection, redact documents, data privacy API">
+    <meta name="robots" content="index,follow,max-image-preview:large">
     <script>
         window.META_PIXEL_ID = window.META_PIXEL_ID || "";
         window.LINKEDIN_PARTNER_ID = window.LINKEDIN_PARTNER_ID || "";
@@ -99,6 +100,14 @@
                 "acceptedAnswer": {
                     "@type": "Answer",
                     "text": "Each response includes: (1) the fully redacted document text, (2) a JSON array of every PII item found with its category, original text, replacement placeholder, and confidence score, and (3) a summary with total PII count, categories found, and risk level."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Can RedactAPI be used with ExtractAPI, CheckAPI, and Agent Router?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes. Teams often chain ExtractAPI for parsing, RedactAPI for privacy cleanup, CheckAPI for compliance validation, and Agent Router for routed service fulfillment."
                 }
             }
         ]
@@ -260,6 +269,7 @@
         <div class="nav-links">
             <a href="#how">How It Works</a>
             <a href="#pricing">Pricing</a>
+            <a href="#stack">Stack</a>
             <a href="/docs" style="{{DOCS_NAV_STYLE}}">API Docs</a>
             <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline" id="nav-call-btn">Book Call</a>
             <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="setup" id="nav-setup-btn">Pay Setup</a>
@@ -500,6 +510,30 @@ console.log(data.summary);
     </div>
 </section>
 
+<section class="how-section" id="stack">
+    <div class="container">
+        <h2 class="section-title">DataWeave Agent Stack</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>ExtractAPI</h3>
+                <p>Parse raw files into structured JSON.<br><a href="https://extractapi.net" target="_blank" rel="noreferrer">extractapi.net</a></p>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>RedactAPI</h3>
+                <p>Remove PII/PHI before downstream usage.<br><a href="{{BASE_URL}}" target="_blank" rel="noreferrer">{{BASE_URL}}</a></p>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>CheckAPI</h3>
+                <p>Validate compliance pass/fail before final output.<br><a href="https://checkapi.co" target="_blank" rel="noreferrer">checkapi.co</a></p>
+            </div>
+        </div>
+        <p style="text-align:center;color:var(--muted);margin-top:18px;">Need routed fulfillment and paid handoff? <a href="https://get-agent-router.com" target="_blank" rel="noreferrer">Agent Router</a> closes the loop.</p>
+    </div>
+</section>
+
 <section class="how-section">
     <div class="container" style="text-align:center;">
         <h2 class="section-title">Ready to Launch Redaction Revenue?</h2>
@@ -536,42 +570,6 @@ function showTab(tab, button) {
     }
 }
 
-function validEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
-}
-
-function appendPrefilledEmail(url, email) {
-    try {
-        const parsed = new URL(url, window.location.origin);
-        parsed.searchParams.set('prefilled_email', email);
-        return parsed.toString();
-    } catch (_) {
-        return url;
-    }
-}
-
-function getCheckoutEmail() {
-    const stored = (localStorage.getItem('redact_checkout_email') || '').trim().toLowerCase();
-    if (validEmail(stored)) return stored;
-    const prompted = String(window.prompt('Enter your work email to continue to checkout:') || '').trim().toLowerCase();
-    if (!validEmail(prompted)) return '';
-    localStorage.setItem('redact_checkout_email', prompted);
-    return prompted;
-}
-
-function installCheckoutEmailGate() {
-    document.querySelectorAll('.checkout-link').forEach((link) => {
-        link.addEventListener('click', (event) => {
-            const email = getCheckoutEmail();
-            if (!email) {
-                event.preventDefault();
-                return;
-            }
-            link.href = appendPrefilledEmail(link.href, email);
-        });
-    });
-}
-
 function installRetargetingPixels() {
     const metaId = window.META_PIXEL_ID || '';
     if (metaId) {
@@ -597,7 +595,6 @@ function installRetargetingPixels() {
 }
 
 installRetargetingPixels();
-installCheckoutEmailGate();
 </script>
 
 </body>

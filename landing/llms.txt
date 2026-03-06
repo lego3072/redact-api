@@ -53,6 +53,12 @@ It supports done-for-you onboarding and self-setup monthly paths.
 - AI plugin manifest: {{BASE_URL}}/.well-known/ai-plugin.json
 - MCP tools: {{BASE_URL}}/v1/mcp/tools
 
+## DataWeave Agent Stack
+- ExtractAPI: https://extractapi.net (document extraction)
+- RedactAPI: {{BASE_URL}} (PII/PHI redaction)
+- CheckAPI: https://checkapi.co (compliance validation)
+- Agent Router: https://get-agent-router.com (intent routing + provider handoff)
+
 ## Canonical URLs
 - Homepage: {{BASE_URL}}/
 - LLM profile: {{BASE_URL}}/llms.txt
