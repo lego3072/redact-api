@@ -1028,6 +1028,8 @@ async def robots_txt(request: Request):
     return PlainTextResponse(
         content=f"""User-agent: *
 Allow: /
+Allow: /.well-known/ai-plugin.json
+Allow: /v1/mcp/tools
 Disallow: /v1/
 Disallow: /api/
 Disallow: /docs
@@ -1114,12 +1116,45 @@ async def agent_offer(request: Request):
     }
 
 
+@app.get("/v1/mcp/tools")
+async def mcp_tools():
+    if not PUBLIC_DOCS_ENABLED:
+        raise HTTPException(status_code=404, detail="Not found")
+    return {
+        "tools": [
+            {
+                "name": "redact_document_pii_phi",
+                "description": "Redact PII/PHI from a single document with findings metadata",
+                "method": "POST",
+                "path": "/v1/redact",
+                "auth": "Bearer API key",
+            },
+            {
+                "name": "batch_redact_documents",
+                "description": "Redact PII/PHI from multiple documents in one request",
+                "method": "POST",
+                "path": "/v1/batch",
+                "auth": "Bearer API key",
+            },
+            {
+                "name": "usage_status",
+                "description": "Retrieve plan quota and usage metrics for current key",
+                "method": "GET",
+                "path": "/v1/usage",
+                "auth": "Bearer API key",
+            },
+        ]
+    }
+
+
 @app.get("/sitemap.xml", response_class=PlainTextResponse)
 async def sitemap(request: Request):
     base = external_base_url(request)
     urls = [f"{base}/", f"{base}/robots.txt"]
     if PUBLIC_DISCOVERY_ENABLED:
         urls.extend([f"{base}/llms.txt", f"{base}/llms-full.txt", f"{base}/.well-known/agent-offer.json"])
+    if PUBLIC_DOCS_ENABLED:
+        urls.extend([f"{base}/.well-known/ai-plugin.json", f"{base}/openapi.json", f"{base}/v1/mcp/tools"])
     rows = "\n".join([f"  <url><loc>{u}</loc></url>" for u in urls])
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

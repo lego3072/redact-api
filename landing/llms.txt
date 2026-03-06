@@ -47,6 +47,12 @@ It supports done-for-you onboarding and self-setup monthly paths.
 - Operational API access is key-protected with usage guardrails
 - Sensitive endpoints and internal operations are intentionally restricted
 
+## Agent Integration Endpoints
+- OpenAPI: {{BASE_URL}}/openapi.json
+- Agent offer: {{BASE_URL}}/.well-known/agent-offer.json
+- AI plugin manifest: {{BASE_URL}}/.well-known/ai-plugin.json
+- MCP tools: {{BASE_URL}}/v1/mcp/tools
+
 ## Canonical URLs
 - Homepage: {{BASE_URL}}/
 - LLM profile: {{BASE_URL}}/llms.txt
