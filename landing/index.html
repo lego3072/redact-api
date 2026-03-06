@@ -271,8 +271,8 @@
             <a href="#pricing">Pricing</a>
             <a href="#stack">Stack</a>
             <a href="/docs" style="{{DOCS_NAV_STYLE}}">API Docs</a>
-            <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline" id="nav-call-btn">Book Call</a>
-            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="setup" id="nav-setup-btn">Pay Setup</a>
+            <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="monthly" id="nav-monthly-btn">Start Monthly</a>
+            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="setup" id="nav-setup-btn">Add DFY Setup</a>
         </div>
     </div>
 </nav>
@@ -281,11 +281,11 @@
 <section class="hero">
     <div class="container">
         <h1>Redact PII from any document<br>with <span class="highlight">one API call</span></h1>
-        <p>Two launch paths: done-for-you onboarding or self-setup monthly. We keep the backend protected while you monetize compliant redaction workflows fast.</p>
+        <p>Start with self-setup monthly (no call required). Add done-for-you onboarding only if you want full implementation handled for you.</p>
         <div class="hero-actions">
-            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="setup" id="hero-setup-btn">Done-For-You Setup</a>
-            <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="monthly" id="hero-monthly-btn">Self-Setup Monthly</a>
-            <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Book Kickoff</a>
+            <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="monthly" id="hero-monthly-btn">Start Monthly ($79)</a>
+            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="setup" id="hero-setup-btn">Add DFY Setup ($2.5k)</a>
+            <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Need Help? Book Call</a>
         </div>
         <div class="badge-row">
             <span class="badge">🔒 HIPAA Ready</span>
@@ -452,23 +452,10 @@ console.log(data.summary);
     <div class="container">
         <h2 class="section-title">Simple, Usage-Based Pricing</h2>
         <div class="proof-band">
-            <div class="title">Proof Block</div>
-            <p>Most conversions happen when mobile users see one clear path, add work email once, and complete checkout in a single redirect.</p>
+            <div class="title">Fastest Path</div>
+            <p>Most buyers convert faster when monthly self-serve is first. DFY setup stays available as an upgrade path.</p>
         </div>
         <div class="pricing-grid">
-            <div class="price-card">
-                <h3>Done-For-You Onboarding</h3>
-                <div class="price">$2.5k</div>
-                <div class="pages">one-time setup + monthly</div>
-                <ul>
-                    <li>We implement end-to-end</li>
-                    <li>Security hardening + QA rollout</li>
-                    <li>Kickoff call + launch handoff</li>
-                    <li>Best for hands-off operators</li>
-                </ul>
-                <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="setup" id="pricing-setup-btn" style="width:100%;text-align:center;">Pay Setup ($2.5k)</a>
-                <p class="risk-note">Risk reversal: monthly continuation can be canceled anytime after launch month.</p>
-            </div>
             <div class="price-card">
                 <h3>Self-Setup Monthly</h3>
                 <div class="price">$79<span>/mo</span></div>
@@ -479,8 +466,21 @@ console.log(data.summary);
                     <li>Best for technical teams</li>
                     <li>Includes Starter tier limits</li>
                 </ul>
-                <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="monthly" id="pricing-monthly-btn" style="width:100%;text-align:center;">Pay Monthly Only</a>
+                <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="monthly" id="pricing-monthly-btn" style="width:100%;text-align:center;">Start Monthly Now</a>
                 <p class="risk-note">Risk reversal: self-setup monthly can be canceled any time.</p>
+            </div>
+            <div class="price-card">
+                <h3>Done-For-You Onboarding</h3>
+                <div class="price">$2.5k</div>
+                <div class="pages">one-time setup + monthly</div>
+                <ul>
+                    <li>We implement end-to-end</li>
+                    <li>Security hardening + QA rollout</li>
+                    <li>Kickoff call + launch handoff</li>
+                    <li>Best for hands-off operators</li>
+                </ul>
+                <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="setup" id="pricing-setup-btn" style="width:100%;text-align:center;">Add DFY Setup ($2.5k)</a>
+                <p class="risk-note">Risk reversal: monthly continuation can be canceled anytime after launch month.</p>
             </div>
             <div class="price-card popular">
                 <h3>Pro</h3>
@@ -537,18 +537,18 @@ console.log(data.summary);
 <section class="how-section">
     <div class="container" style="text-align:center;">
         <h2 class="section-title">Ready to Launch Redaction Revenue?</h2>
-        <p style="color:var(--muted);max-width:720px;margin:0 auto 20px;">Path A: pay setup and we implement. Path B: pay monthly and self-implement. Both paths include protected backend defaults.</p>
+        <p style="color:var(--muted);max-width:720px;margin:0 auto 20px;">Fast path: pay monthly and self-implement. Upgrade path: add setup and we implement for you.</p>
         <div class="hero-actions">
-            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary">Pay Setup</a>
-            <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline">Pay Monthly</a>
-            <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Book Kickoff</a>
+            <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary">Start Monthly</a>
+            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline">Add DFY Setup</a>
+            <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Need Help? Book Call</a>
         </div>
     </div>
 </section>
 
 <div class="mobile-sticky-cta" id="mobile-sticky-cta">
-    <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="setup" id="sticky-setup-btn">Pay Setup</a>
-    <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="monthly" id="sticky-monthly-btn">Pay Monthly</a>
+    <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="monthly" id="sticky-monthly-btn">Start Monthly</a>
+    <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="setup" id="sticky-setup-btn">Add DFY Setup</a>
 </div>
 
 <footer>
