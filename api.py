@@ -1261,6 +1261,7 @@ async def agent_offer(request: Request):
         "pricing": {
             "self_setup_monthly_start_usd": 79,
             "done_for_you_setup_usd": 2500,
+            "full_stack_starter_usd_month": 656,
         },
         "primary_paths": [
             {

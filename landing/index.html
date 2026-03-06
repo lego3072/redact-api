@@ -159,6 +159,12 @@
         .hero-actions .btn { padding: 12px 28px; font-size: 16px; }
         .badge-row { display: flex; gap: 12px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
         .badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; border: 1px solid var(--border); color: var(--muted); background: var(--surface); }
+        .bundle-badge {
+            display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+            border-radius: 20px; font-size: 13px; font-weight: 700;
+            border: 1px solid rgba(59,130,246,0.35); color: #9bd0ff; background: rgba(59,130,246,0.12);
+            margin-bottom: 14px;
+        }
 
         /* Code demo */
         .demo { padding: 60px 0; }
@@ -270,6 +276,7 @@
             <a href="#how">How It Works</a>
             <a href="#pricing">Pricing</a>
             <a href="#stack">Stack</a>
+            <a href="https://get-agent-router.com/#bundle-front" target="_blank" rel="noreferrer">4-Tool Bundle</a>
             <a href="/docs" style="{{DOCS_NAV_STYLE}}">API Docs</a>
             <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="monthly" id="nav-monthly-btn">Start Monthly</a>
             <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="setup" id="nav-setup-btn">Add DFY Setup</a>
@@ -280,11 +287,13 @@
 <!-- Hero -->
 <section class="hero">
     <div class="container">
+        <div class="bundle-badge">4-tool revenue bundle from $656/mo: Extract + Redact + Check + Agent Router</div>
         <h1>Redact PII from any document<br>with <span class="highlight">one API call</span></h1>
         <p>Start with self-setup monthly (no call required). Add done-for-you onboarding only if you want full implementation handled for you.</p>
         <div class="hero-actions">
             <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="monthly" id="hero-monthly-btn">Start Monthly ($79)</a>
             <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="setup" id="hero-setup-btn">Add DFY Setup ($2.5k)</a>
+            <a href="https://get-agent-router.com/#bundle-front" target="_blank" rel="noreferrer" class="btn btn-outline">See Full 4-Tool Bundle</a>
             <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Need Help? Book Call</a>
         </div>
         <div class="badge-row">
