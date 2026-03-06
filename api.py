@@ -732,6 +732,77 @@ async def root_head():
     return Response(status_code=200)
 
 
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy_page():
+    return HTMLResponse(
+        """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy Policy | RedactAPI</title>
+  <meta name="description" content="Privacy Policy for RedactAPI, a DataWeaveAI company." />
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background: #07111f; color: #e6edf7; }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 24px 16px 40px; }
+    .card { background: #10233b; border: 1px solid #1f3f67; border-radius: 12px; padding: 24px; }
+    a { color: #6dd5ff; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Privacy Policy</h1>
+      <p>RedactAPI processes documents to detect and redact sensitive data categories you request.</p>
+      <p>We use trusted processors for payments, infrastructure, and notifications. We do not sell personal data.</p>
+      <p>Contact: joseph@dataweaveai.com</p>
+      <p><a href="/">Back to RedactAPI</a></p>
+      <p style="font-size:12px;color:#9ab0d1;">RedactAPI is a DataWeaveAI company.</p>
+    </div>
+  </div>
+</body>
+</html>
+"""
+    )
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms_page():
+    return HTMLResponse(
+        """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Terms of Service | RedactAPI</title>
+  <meta name="description" content="Terms of Service for RedactAPI, a DataWeaveAI company." />
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background: #07111f; color: #e6edf7; }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 24px 16px 40px; }
+    .card { background: #10233b; border: 1px solid #1f3f67; border-radius: 12px; padding: 24px; }
+    a { color: #6dd5ff; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Terms of Service</h1>
+      <p>By using RedactAPI, you agree to these terms of service.</p>
+      <p>You are responsible for lawful handling of documents and review of redaction outputs before downstream use.</p>
+      <p>Paid plans and setup services follow Stripe checkout terms and renewal settings.</p>
+      <p>Contact: joseph@dataweaveai.com</p>
+      <p><a href="/">Back to RedactAPI</a></p>
+      <p style="font-size:12px;color:#9ab0d1;">RedactAPI is a DataWeaveAI company.</p>
+    </div>
+  </div>
+</body>
+</html>
+"""
+    )
+
+
 @app.get("/book")
 async def book():
     return RedirectResponse(url=CALENDLY_URL, status_code=302)
@@ -1180,7 +1251,7 @@ async def agent_offer(request: Request):
     base = external_base_url(request)
     return {
         "name": "RedactAPI",
-        "company": "DataWeave INC",
+        "company": "DataWeaveAI company",
         "url": base,
         "product_type": "PII/PHI redaction infrastructure",
         "value_proposition": (
