@@ -63,6 +63,64 @@ async def send_followup_email(to_email: str, subject: str, html_body: str) -> bo
         return False
 
 
+async def send_sms_alert(message: str) -> bool:
+    if not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER and ALERT_SMS_TO and message):
+        return False
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json",
+                auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
+                data={
+                    "From": TWILIO_FROM_NUMBER,
+                    "To": ALERT_SMS_TO,
+                    "Body": message[:1500],
+                },
+                timeout=10,
+            )
+            return 200 <= resp.status_code < 300
+    except Exception as e:
+        logger.warning(f"SMS alert failed: {e}")
+        return False
+
+
+def mark_notification_sent(stripe_session_id: str, event_type: str) -> bool:
+    conn = get_db()
+    if not conn or not stripe_session_id:
+        return True
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO notification_events (stripe_session_id, event_type)
+        VALUES (%s, %s)
+        ON CONFLICT (stripe_session_id, event_type) DO NOTHING
+        """,
+        (stripe_session_id, event_type),
+    )
+    inserted = cur.rowcount == 1
+    cur.close()
+    return inserted
+
+
+async def send_paid_checkout_alert(*, buyer_email: str, plan: str, session_id: str, amount_cents: Optional[int]):
+    safe_email = (buyer_email or "").strip() or "-"
+    amount_text = f"${(amount_cents or 0) / 100:.2f}" if amount_cents is not None else "n/a"
+    await send_followup_email(
+        FOLLOWUP_INBOX_EMAIL,
+        f"RedactAPI payment completed: {plan}",
+        (
+            f"<p><b>Payment completed</b></p>"
+            f"<p><b>Email:</b> {safe_email}</p>"
+            f"<p><b>Plan:</b> {plan}</p>"
+            f"<p><b>Amount:</b> {amount_text}</p>"
+            f"<p><b>Session ID:</b> {session_id}</p>"
+        ),
+    )
+    await send_sms_alert(
+        f"RedactAPI paid: {plan}, {safe_email}, {amount_text}, session {session_id}"
+    )
+
+
 # --- Config ---
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
@@ -75,6 +133,10 @@ SETUP_PAYMENT_LINK = os.getenv("SETUP_PAYMENT_LINK", "https://buy.stripe.com/rep
 MONTHLY_PAYMENT_LINK = os.getenv("MONTHLY_PAYMENT_LINK", "https://buy.stripe.com/replace_monthly_link")
 FOLLOWUP_INBOX_EMAIL = os.getenv("FOLLOWUP_INBOX_EMAIL", "joseph@dataweaveai.com").strip()
 FOLLOWUP_FROM_EMAIL = os.getenv("FOLLOWUP_FROM_EMAIL", "RedactAPI <noreply@redactapi.dev>").strip()
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
+TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "").strip()
+ALERT_SMS_TO = os.getenv("ALERT_SMS_TO", "").strip()
 INDEXNOW_KEY = os.getenv("INDEXNOW_KEY", "").strip()
 INTERNAL_PLAN_TOKEN = os.getenv("INTERNAL_PLAN_TOKEN", "").strip()
 PUBLIC_DOCS_ENABLED = env_bool("PUBLIC_DOCS_ENABLED", False)
@@ -169,6 +231,15 @@ def init_db():
             categories_found TEXT[],
             page_count INTEGER DEFAULT 1,
             created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS notification_events (
+            id SERIAL PRIMARY KEY,
+            stripe_session_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(stripe_session_id, event_type)
         )
     """)
     cur.close()
@@ -818,16 +889,6 @@ async def create_checkout(req: CheckoutRequest):
                 f"<p>Need help? Book kickoff: <a href=\"{CALENDLY_URL}\">{CALENDLY_URL}</a></p>"
             ),
         )
-        await send_followup_email(
-            FOLLOWUP_INBOX_EMAIL,
-            f"RedactAPI checkout started: {req.plan}",
-            (
-                f"<p><b>Checkout started</b></p>"
-                f"<p><b>Email:</b> {req.email}</p>"
-                f"<p><b>Plan:</b> {req.plan}</p>"
-                f"<p><b>Checkout URL:</b> <a href=\"{session.url}\">{session.url}</a></p>"
-            ),
-        )
         return {"checkout_url": session.url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -849,6 +910,7 @@ async def stripe_webhook(request: Request):
 
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
+        session_id = session.get("id", "")
         email = session.get("customer_email", "")
         plan = session.get("metadata", {}).get("plan", "starter")
         customer_id = session.get("customer", "")
@@ -862,6 +924,13 @@ async def stripe_webhook(request: Request):
                 (plan, customer_id, subscription_id, email),
             )
             cur.close()
+            if mark_notification_sent(session_id, "paid_checkout"):
+                await send_paid_checkout_alert(
+                    buyer_email=email,
+                    plan=plan,
+                    session_id=session_id,
+                    amount_cents=session.get("amount_total"),
+                )
 
     elif event["type"] == "customer.subscription.deleted":
         subscription = event["data"]["object"]
