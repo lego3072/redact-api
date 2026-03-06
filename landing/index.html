@@ -150,8 +150,25 @@
         .btn-outline { border: 1px solid var(--border); color: var(--text); background: transparent; }
         .btn-outline:hover { border-color: var(--accent); text-decoration: none; }
 
+        .bundle-strip {
+            margin: 14px auto 0;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(59,130,246,0.34);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.14), rgba(59, 130, 246, 0.12));
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        .bundle-strip strong { font-size: 14px; color: #e8f4ff; }
+        .bundle-strip small { display: block; font-size: 12px; color: var(--muted); }
+        .bundle-strip .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+        .bundle-strip .actions a { padding: 7px 12px; font-size: 12px; border-radius: 8px; }
+
         /* Hero */
-        .hero { padding: 80px 0 60px; text-align: center; }
+        .hero { padding: 60px 0 60px; text-align: center; }
         .hero h1 { font-size: 48px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; }
         .hero h1 .highlight { background: linear-gradient(135deg, var(--accent), #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .hero p { font-size: 20px; color: var(--muted); max-width: 640px; margin: 0 auto 32px; }
@@ -276,7 +293,7 @@
             <a href="#how">How It Works</a>
             <a href="#pricing">Pricing</a>
             <a href="#stack">Stack</a>
-            <a href="https://get-agent-router.com/#bundle-front" target="_blank" rel="noreferrer">4-Tool Bundle</a>
+            <a href="{{AGENT_ROUTER_BUNDLE_DASHBOARD_URL}}" target="_blank" rel="noreferrer">Bundle Dashboard</a>
             <a href="/docs" style="{{DOCS_NAV_STYLE}}">API Docs</a>
             <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="monthly" id="nav-monthly-btn">Start Monthly</a>
             <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="setup" id="nav-setup-btn">Add DFY Setup</a>
@@ -284,16 +301,30 @@
     </div>
 </nav>
 
+<section class="container">
+    <div class="bundle-strip">
+        <div>
+            <strong>4-Tool DataWeave Bundle: $656/mo or $3,156 full launch today</strong>
+            <small>Extract + Redact + Check + Agent Router deployed as one revenue stack.</small>
+        </div>
+        <div class="actions">
+            <a href="{{AGENT_ROUTER_BUNDLE_MONTHLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-primary">Start Bundle ($656/mo)</a>
+            <a href="{{AGENT_ROUTER_BUNDLE_FULL_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Full Launch ($3,156)</a>
+        </div>
+    </div>
+</section>
+
 <!-- Hero -->
 <section class="hero">
     <div class="container">
-        <div class="bundle-badge">4-tool revenue bundle from $656/mo: Extract + Redact + Check + Agent Router</div>
+        <div class="bundle-badge">Bundle now: $656/mo, or full launch at $3,156 today then $656/mo</div>
         <h1>Redact PII from any document<br>with <span class="highlight">one API call</span></h1>
         <p>Start with self-setup monthly (no call required). Add done-for-you onboarding only if you want full implementation handled for you.</p>
         <div class="hero-actions">
             <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="monthly" id="hero-monthly-btn">Start Monthly ($79)</a>
             <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="setup" id="hero-setup-btn">Add DFY Setup ($2.5k)</a>
-            <a href="https://get-agent-router.com/#bundle-front" target="_blank" rel="noreferrer" class="btn btn-outline">See Full 4-Tool Bundle</a>
+            <a href="{{AGENT_ROUTER_BUNDLE_MONTHLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Start 4-Tool Bundle ($656/mo)</a>
+            <a href="{{AGENT_ROUTER_BUNDLE_DASHBOARD_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Bundle Dashboard</a>
             <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Need Help? Book Call</a>
         </div>
         <div class="badge-row">

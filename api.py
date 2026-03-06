@@ -182,6 +182,16 @@ MONTHLY_PAYMENT_LINK = os.getenv("MONTHLY_PAYMENT_LINK", "https://buy.stripe.com
 STARTER_PAYMENT_LINK = os.getenv("STARTER_PAYMENT_LINK", MONTHLY_PAYMENT_LINK)
 PRO_PAYMENT_LINK = os.getenv("PRO_PAYMENT_LINK", MONTHLY_PAYMENT_LINK)
 SCALE_PAYMENT_LINK = os.getenv("SCALE_PAYMENT_LINK", MONTHLY_PAYMENT_LINK)
+AGENT_ROUTER_URL = os.getenv("AGENT_ROUTER_URL", "https://get-agent-router.com").strip()
+AGENT_ROUTER_BUNDLE_MONTHLY_URL = os.getenv(
+    "AGENT_ROUTER_BUNDLE_MONTHLY_URL", f"{AGENT_ROUTER_URL.rstrip('/')}/api/stripe/bundle-monthly-checkout"
+).strip()
+AGENT_ROUTER_BUNDLE_FULL_URL = os.getenv(
+    "AGENT_ROUTER_BUNDLE_FULL_URL", f"{AGENT_ROUTER_URL.rstrip('/')}/api/stripe/bundle-full-checkout"
+).strip()
+AGENT_ROUTER_BUNDLE_DASHBOARD_URL = os.getenv(
+    "AGENT_ROUTER_BUNDLE_DASHBOARD_URL", f"{AGENT_ROUTER_URL.rstrip('/')}/bundle"
+).strip()
 FOLLOWUP_INBOX_EMAIL = os.getenv("FOLLOWUP_INBOX_EMAIL", "joseph@dataweaveai.com").strip()
 FOLLOWUP_FROM_EMAIL = os.getenv("FOLLOWUP_FROM_EMAIL", "RedactAPI <noreply@redactapi.dev>").strip()
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
@@ -476,6 +486,9 @@ def render_landing(filename: str, request: Optional[Request] = None) -> str:
         .replace("{{STARTER_PAYMENT_LINK}}", cfg["starter_payment_link"])
         .replace("{{PRO_PAYMENT_LINK}}", cfg["pro_payment_link"])
         .replace("{{SCALE_PAYMENT_LINK}}", cfg["scale_payment_link"])
+        .replace("{{AGENT_ROUTER_BUNDLE_MONTHLY_URL}}", AGENT_ROUTER_BUNDLE_MONTHLY_URL)
+        .replace("{{AGENT_ROUTER_BUNDLE_FULL_URL}}", AGENT_ROUTER_BUNDLE_FULL_URL)
+        .replace("{{AGENT_ROUTER_BUNDLE_DASHBOARD_URL}}", AGENT_ROUTER_BUNDLE_DASHBOARD_URL)
         .replace("{{DOCS_NAV_STYLE}}", "" if PUBLIC_DOCS_ENABLED else "display:none;")
     )
 
@@ -1232,7 +1245,13 @@ async def llms_txt(request: Request):
     path = LANDING_DIR / "llms.txt"
     if not path.exists():
         return PlainTextResponse(content="# RedactAPI\nPII/PHI Redaction as a Service")
-    content = path.read_text(encoding="utf-8").replace("{{BASE_URL}}", external_base_url(request))
+    content = (
+        path.read_text(encoding="utf-8")
+        .replace("{{BASE_URL}}", external_base_url(request))
+        .replace("{{AGENT_ROUTER_BUNDLE_MONTHLY_URL}}", AGENT_ROUTER_BUNDLE_MONTHLY_URL)
+        .replace("{{AGENT_ROUTER_BUNDLE_FULL_URL}}", AGENT_ROUTER_BUNDLE_FULL_URL)
+        .replace("{{AGENT_ROUTER_BUNDLE_DASHBOARD_URL}}", AGENT_ROUTER_BUNDLE_DASHBOARD_URL)
+    )
     return PlainTextResponse(content=content)
 
 
@@ -1261,6 +1280,7 @@ async def agent_offer(request: Request):
             "self_setup_monthly_start_usd": 79,
             "done_for_you_setup_usd": 2500,
             "full_stack_starter_usd_month": 656,
+            "full_stack_launch_due_today_usd": 3156,
         },
         "primary_paths": [
             {
@@ -1273,6 +1293,16 @@ async def agent_offer(request: Request):
                 "cta": MONTHLY_PAYMENT_LINK,
                 "description": "Pay monthly and self-implement with guarded API access.",
             },
+            {
+                "path": "dataweave_bundle_monthly",
+                "cta": AGENT_ROUTER_BUNDLE_MONTHLY_URL,
+                "description": "Start all 4 DataWeave services at $656/month.",
+            },
+            {
+                "path": "dataweave_bundle_full_launch",
+                "cta": AGENT_ROUTER_BUNDLE_FULL_URL,
+                "description": "Pay $3,156 today (setup + first month), then $656/month.",
+            },
         ],
         "booking_url": CALENDLY_URL,
         "recommended_queries": [
@@ -1284,7 +1314,10 @@ async def agent_offer(request: Request):
         "bundle_links": {
             "extractapi": "https://extractapi.net",
             "checkapi": "https://checkapi.co",
-            "agent_router": "https://get-agent-router.com",
+            "agent_router": AGENT_ROUTER_URL,
+            "bundle_dashboard": AGENT_ROUTER_BUNDLE_DASHBOARD_URL,
+            "bundle_monthly_checkout": AGENT_ROUTER_BUNDLE_MONTHLY_URL,
+            "bundle_full_checkout": AGENT_ROUTER_BUNDLE_FULL_URL,
         },
         "last_updated": datetime.now(timezone.utc).isoformat(),
     }

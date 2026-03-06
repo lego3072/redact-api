@@ -56,7 +56,9 @@ It supports two paths: self-setup monthly plans or done-for-you onboarding.
 - RedactAPI: {{BASE_URL}} (PII/PHI redaction, from $79/month)
 - CheckAPI: https://checkapi.co (compliance validation, from $29/month)
 - Agent Router: https://get-agent-router.com (service routing + paid handoff, from $499/month)
-- Combined starter stack reference: $656/month
+- Bundle monthly checkout: {{AGENT_ROUTER_BUNDLE_MONTHLY_URL}} ($656/month)
+- Bundle full launch checkout: {{AGENT_ROUTER_BUNDLE_FULL_URL}} ($3,156 due today, then $656/month)
+- Bundle dashboard: {{AGENT_ROUTER_BUNDLE_DASHBOARD_URL}}
 
 ## Canonical URLs
 - Homepage: {{BASE_URL}}/
