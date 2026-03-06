@@ -189,7 +189,6 @@ INDEXNOW_KEY = os.getenv("INDEXNOW_KEY", "").strip()
 INTERNAL_PLAN_TOKEN = os.getenv("INTERNAL_PLAN_TOKEN", "").strip()
 PUBLIC_DOCS_ENABLED = env_bool("PUBLIC_DOCS_ENABLED", False)
 PUBLIC_DISCOVERY_ENABLED = env_bool("PUBLIC_DISCOVERY_ENABLED", True)
-SIGNUP_ENABLED = env_bool("SIGNUP_ENABLED", False)
 SELF_SERVE_CHECKOUT_ENABLED = env_bool("SELF_SERVE_CHECKOUT_ENABLED", False)
 
 STRIPE_STARTER_MONTHLY = os.getenv("STRIPE_STARTER_MONTHLY", "")
@@ -200,11 +199,17 @@ MODEL = "claude-sonnet-4-20250514"
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
 
 PLAN_LIMITS = {
-    "free": {"pages_per_month": 50, "max_file_size_mb": 10, "batch_limit": 5},
     "starter": {"pages_per_month": 2000, "max_file_size_mb": 20, "batch_limit": 10},
     "pro": {"pages_per_month": 10000, "max_file_size_mb": 20, "batch_limit": 20},
     "scale": {"pages_per_month": 50000, "max_file_size_mb": 20, "batch_limit": 20},
 }
+DEFAULT_PAID_PLAN = "starter"
+PAID_PLANS = set(PLAN_LIMITS.keys())
+
+
+def plan_limits_for(plan: Optional[str]) -> dict:
+    normalized = (plan or "").strip().lower()
+    return PLAN_LIMITS.get(normalized, PLAN_LIMITS[DEFAULT_PAID_PLAN])
 
 PII_CATEGORIES = [
     "person_name",
@@ -261,7 +266,7 @@ def init_db():
             id SERIAL PRIMARY KEY,
             api_key TEXT UNIQUE NOT NULL,
             email TEXT NOT NULL,
-            plan TEXT DEFAULT 'free',
+            plan TEXT DEFAULT 'inactive',
             stripe_customer_id TEXT,
             stripe_subscription_id TEXT,
             pages_used INTEGER DEFAULT 0,
@@ -309,7 +314,7 @@ def get_key_record(api_key: str) -> Optional[dict]:
         return None
     return memory_keys.get(api_key)
 
-def create_key_record(email: str, plan: str = "free") -> str:
+def create_key_record(email: str, plan: str = DEFAULT_PAID_PLAN) -> str:
     api_key = f"rd_{secrets.token_hex(24)}"
     conn = get_db()
     if conn:
@@ -420,8 +425,10 @@ def authenticate(authorization: Optional[str] = None, x_api_key: Optional[str] =
         raise HTTPException(status_code=401, detail="Invalid API key.")
     check_and_reset_usage(record, api_key)
     record = get_key_record(api_key)  # refresh after potential reset
-    plan = record.get("plan", "free")
-    limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+    plan = (record.get("plan") or "").strip().lower()
+    if plan not in PAID_PLANS:
+        raise HTTPException(status_code=402, detail="Paid plan required")
+    limits = plan_limits_for(plan)
     if record["pages_used"] >= limits["pages_per_month"]:
         raise HTTPException(
             status_code=429,
@@ -759,8 +766,8 @@ async def batch_redact(
     """Redact PII from multiple documents (up to 20 per request)."""
     record = authenticate(authorization, x_api_key)
     api_key = record["api_key"]
-    plan = record.get("plan", "free")
-    batch_limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["batch_limit"]
+    plan = (record.get("plan") or "").strip().lower()
+    batch_limit = plan_limits_for(plan)["batch_limit"]
 
     if len(files) > batch_limit:
         raise HTTPException(status_code=400, detail=f"Batch limit is {batch_limit} files on {plan} plan.")
@@ -817,8 +824,8 @@ async def get_usage(
 ):
     """Get current usage stats and plan limits."""
     record = authenticate(authorization, x_api_key)
-    plan = record.get("plan", "free")
-    limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+    plan = (record.get("plan") or "").strip().lower()
+    limits = plan_limits_for(plan)
     return {
         "plan": plan,
         "pages_used": record["pages_used"],
@@ -836,63 +843,12 @@ class SignupRequest(BaseModel):
 
 @app.post("/api/signup")
 async def signup(req: SignupRequest):
-    """Get a free API key."""
-    if not SIGNUP_ENABLED:
-        raise HTTPException(status_code=403, detail="Self-serve signup is disabled")
-    email = req.email.strip().lower()
-    if not email or "@" not in email:
-        raise HTTPException(status_code=400, detail="Valid email required")
-
-    # Check if already exists
-    conn = get_db()
-    if conn:
-        cur = conn.cursor()
-        cur.execute("SELECT api_key FROM api_keys WHERE email = %s", (email,))
-        existing = cur.fetchone()
-        cur.close()
-        if existing:
-            return {"api_key": existing[0], "message": "API key already exists for this email."}
-
-    api_key = create_key_record(email)
-
-    # Send welcome email
-    if RESEND_API_KEY:
-        try:
-            async with httpx.AsyncClient() as client:
-                await client.post(
-                    "https://api.resend.com/emails",
-                    headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
-                    json={
-                        "from": f"RedactAPI <noreply@{BASE_URL.replace('https://', '').replace('http://', '')}>",
-                        "to": [email],
-                        "subject": "Your RedactAPI Key",
-                        "html": f"""
-                        <h2>Welcome to RedactAPI</h2>
-                        <p>Your API key: <code>{api_key}</code></p>
-                        <p>You have 50 free pages/month. Get started:</p>
-                        <pre>curl -X POST {BASE_URL}/v1/redact \\
-  -H "Authorization: Bearer {api_key}" \\
-  -F "file=@document.pdf"</pre>
-                        <p><a href="{BASE_URL}/">Landing page →</a></p>
-                        """,
-                    },
-                )
-        except Exception as e:
-            logger.warning(f"Failed to send welcome email: {e}")
-
-    await send_followup_email(
-        FOLLOWUP_INBOX_EMAIL,
-        f"RedactAPI signup: {email}",
-        (
-            f"<p><b>New signup</b></p>"
-            f"<p><b>Email:</b> {email}</p>"
-            f"<p><b>Plan:</b> free</p>"
-            f"<p><b>Onboarding:</b> {SETUP_PAYMENT_LINK}</p>"
-            f"<p><b>Calendly:</b> {CALENDLY_URL}</p>"
-        ),
+    """Legacy endpoint intentionally disabled (no free plan)."""
+    _ = req
+    raise HTTPException(
+        status_code=410,
+        detail="Free signup has been retired. Use paid onboarding or monthly checkout at /#pricing.",
     )
-
-    return {"api_key": api_key, "plan": "free", "pages_per_month": 50}
 
 
 # --- Stripe checkout ---
@@ -1002,7 +958,7 @@ async def stripe_webhook(request: Request):
         conn = get_db()
         if conn:
             cur = conn.cursor()
-            cur.execute("UPDATE api_keys SET plan = 'free' WHERE stripe_subscription_id = %s", (sub_id,))
+            cur.execute("UPDATE api_keys SET plan = 'inactive' WHERE stripe_subscription_id = %s", (sub_id,))
             cur.close()
 
     return {"status": "ok"}
