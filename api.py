@@ -192,7 +192,7 @@ INDEXNOW_KEY = os.getenv("INDEXNOW_KEY", "").strip()
 INTERNAL_PLAN_TOKEN = os.getenv("INTERNAL_PLAN_TOKEN", "").strip()
 PUBLIC_DOCS_ENABLED = env_bool("PUBLIC_DOCS_ENABLED", False)
 PUBLIC_DISCOVERY_ENABLED = env_bool("PUBLIC_DISCOVERY_ENABLED", True)
-SELF_SERVE_CHECKOUT_ENABLED = env_bool("SELF_SERVE_CHECKOUT_ENABLED", False)
+SELF_SERVE_CHECKOUT_ENABLED = env_bool("SELF_SERVE_CHECKOUT_ENABLED", True)
 
 STRIPE_STARTER_MONTHLY = os.getenv("STRIPE_STARTER_MONTHLY", "")
 STRIPE_PRO_MONTHLY = os.getenv("STRIPE_PRO_MONTHLY", "")
@@ -316,6 +316,63 @@ def get_key_record(api_key: str) -> Optional[dict]:
             return {"api_key": row[0], "email": row[1], "plan": row[2], "pages_used": row[3], "pages_reset_at": row[4]}
         return None
     return memory_keys.get(api_key)
+
+
+def get_key_record_by_email(email: str) -> Optional[dict]:
+    normalized = (email or "").strip().lower()
+    if not normalized:
+        return None
+    conn = get_db()
+    if conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT api_key, email, plan, pages_used, pages_reset_at
+            FROM api_keys WHERE LOWER(email) = %s
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (normalized,),
+        )
+        row = cur.fetchone()
+        cur.close()
+        if row:
+            return {"api_key": row[0], "email": row[1], "plan": row[2], "pages_used": row[3], "pages_reset_at": row[4]}
+        return None
+    for key in memory_keys.values():
+        if (key.get("email") or "").strip().lower() == normalized:
+            return key
+    return None
+
+
+def infer_plan_from_checkout_session(session_obj: dict) -> str:
+    explicit = ((session_obj.get("metadata") or {}).get("plan") or "").strip().lower()
+    if explicit in PLAN_LIMITS:
+        return explicit
+
+    price_to_plan = {
+        STRIPE_STARTER_MONTHLY: "starter",
+        STRIPE_PRO_MONTHLY: "pro",
+        STRIPE_SCALE_MONTHLY: "scale",
+    }
+    line_items = (session_obj.get("line_items") or {}).get("data") or []
+    for item in line_items:
+        price_id = ((item or {}).get("price") or {}).get("id")
+        plan = price_to_plan.get(price_id)
+        if plan:
+            return plan
+
+    session_id = session_obj.get("id")
+    if session_id:
+        try:
+            expanded = stripe.checkout.Session.retrieve(session_id, expand=["line_items.data.price"])
+            for item in ((expanded.get("line_items") or {}).get("data") or []):
+                price_id = ((item or {}).get("price") or {}).get("id")
+                plan = price_to_plan.get(price_id)
+                if plan:
+                    return plan
+        except Exception as e:
+            logger.warning(f"Plan inference failed for session {session_id}: {e}")
+    return DEFAULT_PAID_PLAN
 
 def create_key_record(email: str, plan: str = DEFAULT_PAID_PLAN) -> str:
     api_key = f"rd_{secrets.token_hex(24)}"
@@ -617,6 +674,30 @@ app = FastAPI(
 app.mount("/landing", StaticFiles(directory=str(LANDING_DIR)), name="landing")
 
 
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "img-src 'self' data: https:; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com data:; "
+        "script-src 'self' 'unsafe-inline' https://js.stripe.com; "
+        "connect-src 'self' https://api.stripe.com https://*.stripe.com; "
+        "frame-src https://js.stripe.com https://hooks.stripe.com; "
+        "base-uri 'self'; form-action 'self' https://checkout.stripe.com; "
+        "object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests"
+    )
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    if proto == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+    return response
+
+
 @app.on_event("startup")
 async def startup():
     init_db()
@@ -876,14 +957,26 @@ async def create_checkout(req: CheckoutRequest):
     if not STRIPE_SECRET_KEY:
         raise HTTPException(status_code=503, detail="Billing not configured")
 
+    email = (req.email or "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Valid email required")
+
     price_map = {
         "starter": STRIPE_STARTER_MONTHLY,
         "pro": STRIPE_PRO_MONTHLY,
         "scale": STRIPE_SCALE_MONTHLY,
     }
-    price_id = price_map.get(req.plan)
+    plan = (req.plan or "").strip().lower()
+    price_id = price_map.get(plan)
     if not price_id:
         raise HTTPException(status_code=400, detail=f"Invalid plan: {req.plan}. Choose: starter, pro, scale")
+
+    key_record = get_key_record_by_email(email)
+    if not key_record:
+        api_key = create_key_record(email, "inactive")
+        key_record = get_key_record(api_key)
+    else:
+        api_key = key_record["api_key"]
 
     try:
         session = stripe.checkout.Session.create(
@@ -892,36 +985,38 @@ async def create_checkout(req: CheckoutRequest):
             mode="subscription",
             success_url=f"{BASE_URL}/?upgraded=true",
             cancel_url=f"{BASE_URL}/?cancelled=true",
-            customer_email=req.email,
-            metadata={"plan": req.plan},
+            customer_email=email,
+            client_reference_id=api_key,
+            metadata={"plan": plan, "api_key": api_key, "email": email},
         )
         await send_followup_email(
-            req.email,
+            email,
             "Complete your RedactAPI plan upgrade",
             (
                 f"<h2>You're almost done</h2>"
-                f"<p>Finish checkout to activate <b>{req.plan}</b> plan:</p>"
+                f"<p>Finish checkout to activate <b>{plan}</b> plan:</p>"
                 f"<p><a href=\"{session.url}\">{session.url}</a></p>"
                 f"<p>Need help? Book kickoff: <a href=\"{CALENDLY_URL}\">{CALENDLY_URL}</a></p>"
             ),
         )
         await send_followup_email(
             FOLLOWUP_INBOX_EMAIL,
-            f"RedactAPI checkout started: {req.plan}",
+            f"RedactAPI checkout started: {plan}",
             (
                 f"<p><b>Checkout started</b></p>"
-                f"<p><b>Email:</b> {req.email}</p>"
-                f"<p><b>Plan:</b> {req.plan}</p>"
+                f"<p><b>Email:</b> {email}</p>"
+                f"<p><b>Plan:</b> {plan}</p>"
+                f"<p><b>API key:</b> {api_key}</p>"
                 f"<p><b>Session:</b> {session.id}</p>"
             ),
         )
         schedule_abandoned_checkout_sequence(
             session_id=session.id,
-            buyer_email=req.email,
-            plan=req.plan,
+            buyer_email=email,
+            plan=plan,
             checkout_url=session.url,
         )
-        return {"checkout_url": session.url}
+        return {"checkout_url": session.url, "api_key": api_key}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -943,17 +1038,36 @@ async def stripe_webhook(request: Request):
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         session_id = session.get("id", "")
-        email = session.get("customer_email", "")
-        plan = session.get("metadata", {}).get("plan", "starter")
+        metadata = session.get("metadata") or {}
+        email = (
+            session.get("customer_email")
+            or (session.get("customer_details") or {}).get("email")
+            or metadata.get("email")
+            or ""
+        ).strip().lower()
+        plan = infer_plan_from_checkout_session(session)
         customer_id = session.get("customer", "")
         subscription_id = session.get("subscription", "")
+        api_key = session.get("client_reference_id") or metadata.get("api_key")
+
+        if not api_key and email:
+            existing = get_key_record_by_email(email)
+            if existing:
+                api_key = existing.get("api_key")
+            else:
+                api_key = create_key_record(email, "inactive")
 
         conn = get_db()
-        if conn and email:
+        if conn and api_key:
             cur = conn.cursor()
             cur.execute(
-                "UPDATE api_keys SET plan = %s, stripe_customer_id = %s, stripe_subscription_id = %s WHERE email = %s",
-                (plan, customer_id, subscription_id, email),
+                """
+                UPDATE api_keys
+                SET plan = %s, stripe_customer_id = %s, stripe_subscription_id = %s,
+                    email = COALESCE(NULLIF(email, ''), %s)
+                WHERE api_key = %s
+                """,
+                (plan, customer_id, subscription_id, email, api_key),
             )
             cur.close()
             if mark_notification_sent(session_id, "paid_checkout"):
@@ -962,6 +1076,17 @@ async def stripe_webhook(request: Request):
                     plan=plan,
                     session_id=session_id,
                     amount_cents=session.get("amount_total"),
+                )
+            if email and mark_notification_sent(session_id, "api_key_delivery"):
+                await send_followup_email(
+                    email,
+                    "Your RedactAPI key is active",
+                    (
+                        f"<h2>RedactAPI access activated</h2>"
+                        f"<p><b>Plan:</b> {plan}</p>"
+                        f"<p><b>API key:</b> <code>{api_key}</code></p>"
+                        f"<p>Docs: <a href=\"{BASE_URL}/docs\">{BASE_URL}/docs</a></p>"
+                    ),
                 )
 
     elif event["type"] == "customer.subscription.deleted":
