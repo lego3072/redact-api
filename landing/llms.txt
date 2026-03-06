@@ -50,7 +50,6 @@ It supports two paths: self-setup monthly plans or done-for-you onboarding.
 - OpenAPI: {{BASE_URL}}/openapi.json
 - Agent offer: {{BASE_URL}}/.well-known/agent-offer.json
 - AI plugin manifest: {{BASE_URL}}/.well-known/ai-plugin.json
-- MCP tools: {{BASE_URL}}/v1/mcp/tools
 
 ## DataWeave Agent Bundle
 - ExtractAPI: https://extractapi.net (document extraction, from $49/month)

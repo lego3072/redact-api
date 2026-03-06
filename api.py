@@ -1193,7 +1193,6 @@ async def robots_txt(request: Request):
         content=f"""User-agent: *
 Allow: /
 Allow: /.well-known/ai-plugin.json
-Allow: /v1/mcp/tools
 Disallow: /v1/
 Disallow: /api/
 Disallow: /docs
@@ -1329,7 +1328,7 @@ async def sitemap(request: Request):
     if PUBLIC_DISCOVERY_ENABLED:
         urls.extend([f"{base}/llms.txt", f"{base}/llms-full.txt", f"{base}/.well-known/agent-offer.json"])
     if PUBLIC_DOCS_ENABLED:
-        urls.extend([f"{base}/.well-known/ai-plugin.json", f"{base}/openapi.json", f"{base}/v1/mcp/tools"])
+        urls.extend([f"{base}/.well-known/ai-plugin.json", f"{base}/openapi.json"])
     rows = "\n".join([f"  <url><loc>{u}</loc></url>" for u in urls])
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
