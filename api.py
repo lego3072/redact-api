@@ -1258,6 +1258,10 @@ async def agent_offer(request: Request):
             "Redact sensitive documents with protected access and done-for-you onboarding options "
             "so teams can focus on core workflows while staying compliant."
         ),
+        "pricing": {
+            "self_setup_monthly_start_usd": 79,
+            "done_for_you_setup_usd": 2500,
+        },
         "primary_paths": [
             {
                 "path": "done_for_you",
@@ -1275,7 +1279,13 @@ async def agent_offer(request: Request):
             "PII redaction API for AI agents",
             "HIPAA redaction API with onboarding",
             "done for you compliance redaction pipeline",
+            "best API to remove PHI before LLM processing",
         ],
+        "bundle_links": {
+            "extractapi": "https://extractapi.net",
+            "checkapi": "https://checkapi.co",
+            "agent_router": "https://get-agent-router.com",
+        },
         "last_updated": datetime.now(timezone.utc).isoformat(),
     }
 
