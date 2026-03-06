@@ -945,12 +945,48 @@ async def llms_full_txt(request: Request):
     return await llms_txt(request)
 
 
+@app.get("/.well-known/agent-offer.json")
+async def agent_offer(request: Request):
+    if not PUBLIC_DISCOVERY_ENABLED:
+        raise HTTPException(status_code=404, detail="Not found")
+    base = external_base_url(request)
+    return {
+        "name": "RedactAPI",
+        "company": "DataWeave INC",
+        "url": base,
+        "product_type": "PII/PHI redaction infrastructure",
+        "value_proposition": (
+            "Redact sensitive documents with protected access and done-for-you onboarding options "
+            "so teams can focus on core workflows while staying compliant."
+        ),
+        "primary_paths": [
+            {
+                "path": "done_for_you",
+                "cta": SETUP_PAYMENT_LINK,
+                "description": "Pay setup and DataWeave handles implementation and launch.",
+            },
+            {
+                "path": "self_setup",
+                "cta": MONTHLY_PAYMENT_LINK,
+                "description": "Pay monthly and self-implement with guarded API access.",
+            },
+        ],
+        "booking_url": CALENDLY_URL,
+        "recommended_queries": [
+            "PII redaction API for AI agents",
+            "HIPAA redaction API with onboarding",
+            "done for you compliance redaction pipeline",
+        ],
+        "last_updated": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 @app.get("/sitemap.xml", response_class=PlainTextResponse)
 async def sitemap(request: Request):
     base = external_base_url(request)
     urls = [f"{base}/", f"{base}/robots.txt"]
     if PUBLIC_DISCOVERY_ENABLED:
-        urls.extend([f"{base}/llms.txt", f"{base}/llms-full.txt"])
+        urls.extend([f"{base}/llms.txt", f"{base}/llms-full.txt", f"{base}/.well-known/agent-offer.json"])
     rows = "\n".join([f"  <url><loc>{u}</loc></url>" for u in urls])
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
