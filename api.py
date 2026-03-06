@@ -454,7 +454,24 @@ def external_base_url(request: Optional[Request] = None) -> str:
     return (BASE_URL or "https://redactapi.dev").rstrip("/")
 
 
-def payment_config() -> dict:
+def managed_checkout_url(plan: str, request: Optional[Request] = None) -> str:
+    plan_key = (plan or "").strip().lower()
+    price_map = {
+        "starter": STRIPE_STARTER_MONTHLY,
+        "pro": STRIPE_PRO_MONTHLY,
+        "scale": STRIPE_SCALE_MONTHLY,
+    }
+    if SELF_SERVE_CHECKOUT_ENABLED and STRIPE_SECRET_KEY and price_map.get(plan_key):
+        return f"{external_base_url(request)}/api/checkout/start?plan={plan_key}"
+    fallback = {
+        "starter": STARTER_PAYMENT_LINK,
+        "pro": PRO_PAYMENT_LINK,
+        "scale": SCALE_PAYMENT_LINK,
+    }
+    return fallback.get(plan_key, STARTER_PAYMENT_LINK)
+
+
+def payment_config(request: Optional[Request] = None) -> dict:
     return {
         "payment_ready": not SETUP_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_")
         and not MONTHLY_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_")
@@ -462,10 +479,10 @@ def payment_config() -> dict:
         and not PRO_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_")
         and not SCALE_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_"),
         "setup_payment_link": SETUP_PAYMENT_LINK,
-        "monthly_payment_link": MONTHLY_PAYMENT_LINK,
-        "starter_payment_link": STARTER_PAYMENT_LINK,
-        "pro_payment_link": PRO_PAYMENT_LINK,
-        "scale_payment_link": SCALE_PAYMENT_LINK,
+        "monthly_payment_link": managed_checkout_url("starter", request),
+        "starter_payment_link": managed_checkout_url("starter", request),
+        "pro_payment_link": managed_checkout_url("pro", request),
+        "scale_payment_link": managed_checkout_url("scale", request),
         "calendly_url": CALENDLY_URL,
         "calendly_live": "calendly.com/your-team" not in CALENDLY_URL and "calendly.com/your-" not in CALENDLY_URL,
     }
@@ -477,7 +494,7 @@ def render_landing(filename: str, request: Optional[Request] = None) -> str:
         return ""
     html = page.read_text(encoding="utf-8")
     base = external_base_url(request)
-    cfg = payment_config()
+    cfg = payment_config(request)
     return (
         html.replace("{{BASE_URL}}", base)
         .replace("{{CALENDLY_URL}}", cfg["calendly_url"])
@@ -823,34 +840,7 @@ async def book():
 
 @app.get("/success", response_class=HTMLResponse)
 async def success(request: Request):
-    cfg = payment_config()
-    html = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="utf-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <title>RedactAPI | Next Steps</title>
-      <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #07111f; color: #e6edf7; margin: 0; padding: 24px; }}
-        .card {{ max-width: 760px; margin: 24px auto; background: #10233b; border: 1px solid #1f3f67; border-radius: 14px; padding: 28px; }}
-        a {{ color: #6dd5ff; }}
-      </style>
-    </head>
-    <body>
-      <div class="card">
-        <h1>You're In</h1>
-        <p>Choose your launch path and complete the next step.</p>
-        <ol>
-          <li><a href="{cfg['setup_payment_link']}" target="_blank" rel="noreferrer">Done-for-you setup: pay onboarding</a></li>
-          <li><a href="{cfg['monthly_payment_link']}" target="_blank" rel="noreferrer">Self-setup: pay monthly-only plan</a></li>
-          <li><a href="{cfg['calendly_url']}" target="_blank" rel="noreferrer">Book kickoff call</a></li>
-        </ol>
-      </div>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html)
+    return await payment_success_page(session_id=(request.query_params.get("session_id") or ""))
 
 
 @app.get("/launch-48h", response_class=HTMLResponse)
@@ -1034,7 +1024,7 @@ class CheckoutRequest(BaseModel):
     plan: str
 
 @app.post("/api/checkout")
-async def create_checkout(req: CheckoutRequest):
+async def create_checkout(req: CheckoutRequest, request: Request):
     """Create a Stripe checkout session for plan upgrade."""
     if not SELF_SERVE_CHECKOUT_ENABLED:
         raise HTTPException(status_code=403, detail="Self-serve checkout is disabled")
@@ -1067,8 +1057,8 @@ async def create_checkout(req: CheckoutRequest):
             payment_method_types=["card"],
             line_items=[{"price": price_id, "quantity": 1}],
             mode="subscription",
-            success_url=f"{BASE_URL}/?upgraded=true",
-            cancel_url=f"{BASE_URL}/?cancelled=true",
+            success_url=f"{external_base_url(request)}/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{external_base_url(request)}/?cancelled=true",
             customer_email=email,
             client_reference_id=api_key,
             metadata={"plan": plan, "api_key": api_key, "email": email},
@@ -1103,6 +1093,35 @@ async def create_checkout(req: CheckoutRequest):
         return {"checkout_url": session.url, "api_key": api_key}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/checkout/start")
+async def checkout_start(plan: str, request: Request):
+    if not SELF_SERVE_CHECKOUT_ENABLED:
+        raise HTTPException(status_code=403, detail="Self-serve checkout is disabled")
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=503, detail="Billing not configured")
+
+    plan_value = (plan or "").strip().lower()
+    price_map = {
+        "starter": STRIPE_STARTER_MONTHLY,
+        "pro": STRIPE_PRO_MONTHLY,
+        "scale": STRIPE_SCALE_MONTHLY,
+    }
+    price_id = price_map.get(plan_value)
+    if not price_id:
+        raise HTTPException(status_code=400, detail="Invalid plan")
+
+    session = stripe.checkout.Session.create(
+        payment_method_types=["card"],
+        line_items=[{"price": price_id, "quantity": 1}],
+        mode="subscription",
+        success_url=f"{external_base_url(request)}/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{external_base_url(request)}/?cancelled=true",
+        metadata={"plan": plan_value, "product": "redactapi", "source": "checkout_start"},
+        allow_promotion_codes=True,
+    )
+    return RedirectResponse(url=session.url, status_code=303)
 
 
 # --- Stripe webhook ---
@@ -1185,11 +1204,163 @@ async def stripe_webhook(request: Request):
     return {"status": "ok"}
 
 
+@app.get("/api/billing/verify-session")
+async def verify_session(session_id: str):
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=503, detail="Billing not configured")
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        if session.get("payment_status") == "paid":
+            return {
+                "verified": True,
+                "plan": infer_plan_from_checkout_session(session),
+                "email": (
+                    session.get("customer_email")
+                    or (session.get("customer_details") or {}).get("email")
+                    or (session.get("metadata") or {}).get("email")
+                ),
+            }
+        return {"verified": False, "reason": "Payment not completed"}
+    except Exception:
+        return {"verified": False, "reason": "Payment verification failed"}
+
+
+class AccessRecoveryRequest(BaseModel):
+    email: str
+
+
+@app.post("/api/access/resend-key")
+async def resend_access_key(req: AccessRecoveryRequest):
+    email = (req.email or "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Valid email required")
+
+    record = get_key_record_by_email(email)
+    if record:
+        await send_followup_email(
+            email,
+            "Your RedactAPI access details",
+            (
+                f"<h2>RedactAPI Access</h2>"
+                f"<p><b>Plan:</b> {record.get('plan', 'inactive')}</p>"
+                f"<p><b>API key:</b> <code>{record.get('api_key')}</code></p>"
+                f"<p>Docs: <a href=\"{external_base_url()}/docs\">{external_base_url()}/docs</a></p>"
+            ),
+        )
+    return {"status": "accepted"}
+
+
+@app.get("/payment-success", response_class=HTMLResponse)
+async def payment_success_page(session_id: str = ""):
+    safe_session = (session_id or "").strip()
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RedactAPI | Payment Confirmation</title>
+  <style>
+    body {{ margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #07111f; color: #e6edf7; }}
+    .wrap {{ max-width: 760px; margin: 24px auto; padding: 0 16px; }}
+    .card {{ background: #10233b; border: 1px solid #1f3f67; border-radius: 12px; padding: 24px; }}
+    .status {{ color: #79dcff; font-weight: 700; margin: 10px 0 14px; }}
+    .actions {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }}
+    .btn {{ text-decoration: none; border-radius: 10px; padding: 10px 14px; font-weight: 700; display: inline-block; }}
+    .btn-primary {{ background: #22d6ff; color: #072238; }}
+    .btn-muted {{ border: 1px solid #2d567d; color: #e0eefb; background: #112843; }}
+    input {{ width: 100%; max-width: 360px; margin-top: 8px; border: 1px solid #2a5478; border-radius: 8px; background: #0a182b; color: #e6edf7; padding: 10px; }}
+    button {{ margin-top: 8px; border: 1px solid #2b5f89; background: #123759; color: #e6edf7; border-radius: 8px; padding: 9px 12px; font-weight: 700; cursor: pointer; }}
+    small {{ color: #9eb5d1; }}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Payment Received. Activating RedactAPI.</h1>
+      <p id="status-text" class="status">Verifying payment...</p>
+      <p id="detail-text">Session: <code>{safe_session or "missing"}</code></p>
+      <p>Your API key is delivered to the checkout email when payment completes.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="/docs">Open Docs</a>
+        <a class="btn btn-muted" href="/">Back to Home</a>
+      </div>
+      <hr style="border:0;border-top:1px solid #214368;margin:20px 0;" />
+      <h3 style="margin:0 0 8px;">Need key resend?</h3>
+      <input id="recover-email" type="email" placeholder="you@company.com" />
+      <br />
+      <button id="recover-btn" type="button">Resend Access Email</button>
+      <p id="recover-note"><small></small></p>
+    </div>
+  </div>
+  <script>
+    (function() {{
+      const sessionId = {json.dumps(safe_session)};
+      const statusEl = document.getElementById("status-text");
+      const detailEl = document.getElementById("detail-text");
+      const emailInput = document.getElementById("recover-email");
+      const recoverBtn = document.getElementById("recover-btn");
+      const recoverNote = document.getElementById("recover-note");
+
+      async function verify() {{
+        if (!sessionId) {{
+          statusEl.textContent = "Missing session ID. Use key resend below if needed.";
+          return;
+        }}
+        try {{
+          const res = await fetch(`/api/billing/verify-session?session_id=${{encodeURIComponent(sessionId)}}`, {{ cache: "no-store" }});
+          const data = await res.json();
+          if (data.verified) {{
+            statusEl.textContent = `Payment confirmed for plan: ${{data.plan || "starter"}}`;
+            if (data.email) {{
+              detailEl.textContent = `Activation email sent to: ${{data.email}}`;
+              emailInput.value = data.email;
+            }} else {{
+              detailEl.textContent = "Payment confirmed. Check checkout inbox for key delivery.";
+            }}
+          }} else {{
+            statusEl.textContent = "Payment not confirmed yet. Refresh in 30 seconds.";
+            detailEl.textContent = data.reason || "Waiting for Stripe confirmation.";
+          }}
+        }} catch (_) {{
+          statusEl.textContent = "Unable to verify now. You can still request key resend.";
+        }}
+      }}
+
+      recoverBtn.addEventListener("click", async () => {{
+        const email = (emailInput.value || "").trim();
+        if (!email || !email.includes("@")) {{
+          recoverNote.innerHTML = "<small>Enter a valid email first.</small>";
+          return;
+        }}
+        recoverBtn.disabled = true;
+        recoverNote.innerHTML = "<small>Sending...</small>";
+        try {{
+          await fetch("/api/access/resend-key", {{
+            method: "POST",
+            headers: {{ "Content-Type": "application/json" }},
+            body: JSON.stringify({{ email }})
+          }});
+          recoverNote.innerHTML = "<small>If this email exists, access details were sent.</small>";
+        }} catch (_) {{
+          recoverNote.innerHTML = "<small>Unable to send now. Try again in a minute.</small>";
+        }} finally {{
+          recoverBtn.disabled = false;
+        }}
+      }});
+
+      verify();
+    }})();
+  </script>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
+
 # --- Public marketing config ---
 @app.get("/v1/public/config")
 async def public_config(request: Request):
     return {
-        **payment_config(),
+        **payment_config(request),
         "public_base_url": external_base_url(request),
         "product": "redactapi",
         "time": datetime.now(timezone.utc).isoformat(),
