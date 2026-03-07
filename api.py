@@ -223,7 +223,7 @@ PLAN_LIMITS = {
 }
 DEFAULT_PAID_PLAN = "starter"
 PAID_PLANS = set(PLAN_LIMITS.keys())
-MARGIN_FLOOR = max(0.0, min(0.99, float(os.getenv("MARGIN_FLOOR", "0.90"))))
+MARGIN_FLOOR = max(0.0, min(0.99, float(os.getenv("MARGIN_FLOOR", "0.80"))))
 ESTIMATED_API_COST_PER_PAGE_USD = max(0.0, float(os.getenv("ESTIMATED_API_COST_PER_PAGE_USD", "0.02")))
 PLAN_PRICE_USD = {
     "starter": max(0.0, float(os.getenv("STARTER_PRICE_USD", "79"))),
