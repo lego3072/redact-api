@@ -128,7 +128,10 @@ def schedule_abandoned_checkout_sequence(*, session_id: str, buyer_email: str, p
         return
 
     async def _runner() -> None:
-        fresh_checkout_url = f"{managed_checkout_url(plan)}&email={urllib.parse.quote_plus((buyer_email or '').strip().lower())}"
+        fresh_checkout_url = checkout_url_with_optional_email(
+            managed_checkout_url(plan),
+            (buyer_email or "").strip().lower(),
+        )
         touchpoints = [
             (10 * 60, "10-minute"),
             (6 * 60 * 60, "6-hour"),
@@ -564,19 +567,27 @@ def external_base_url(request: Optional[Request] = None) -> str:
 
 def managed_checkout_url(plan: str, request: Optional[Request] = None) -> str:
     plan_key = (plan or "").strip().lower()
-    price_map = {
-        "starter": STRIPE_STARTER_MONTHLY,
-        "pro": STRIPE_PRO_MONTHLY,
-        "scale": STRIPE_SCALE_MONTHLY,
-    }
-    if SELF_SERVE_CHECKOUT_ENABLED and STRIPE_SECRET_KEY and price_map.get(plan_key):
-        return f"{external_base_url(request)}/api/checkout/start?plan={plan_key}"
     fallback = {
         "starter": STARTER_PAYMENT_LINK,
         "pro": PRO_PAYMENT_LINK,
         "scale": SCALE_PAYMENT_LINK,
     }
     return fallback.get(plan_key, STARTER_PAYMENT_LINK)
+
+
+def checkout_url_with_optional_email(base_url: str, email: str) -> str:
+    clean_email = normalize_email(email)
+    if not base_url:
+        return ""
+    if not valid_email(clean_email):
+        return base_url
+    parsed = urllib.parse.urlsplit(base_url)
+    query = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+    if "buy.stripe.com" in (parsed.netloc or ""):
+        query.append(("prefilled_email", clean_email))
+    elif parsed.path.endswith("/api/checkout/start"):
+        query.append(("email", clean_email))
+    return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urllib.parse.urlencode(query), parsed.fragment))
 
 
 def payment_config(request: Optional[Request] = None) -> dict:
@@ -1168,9 +1179,10 @@ async def create_checkout(req: CheckoutRequest, request: Request):
         raise HTTPException(status_code=503, detail="Billing not configured")
 
     email = normalize_email(req.email)
-    blocked_reason = blocked_checkout_email_reason(email)
-    if blocked_reason:
-        raise HTTPException(status_code=400, detail=blocked_reason)
+    if email:
+        blocked_reason = blocked_checkout_email_reason(email)
+        if blocked_reason:
+            raise HTTPException(status_code=400, detail=blocked_reason)
 
     price_map = {
         "starter": STRIPE_STARTER_MONTHLY,
@@ -1182,9 +1194,9 @@ async def create_checkout(req: CheckoutRequest, request: Request):
     if not price_id:
         raise HTTPException(status_code=400, detail=f"Invalid plan: {req.plan}. Choose: starter, pro, scale")
 
-    key_record = get_key_record_by_email(email)
+    key_record = get_key_record_by_email(email) if email else None
     if not key_record:
-        api_key = create_key_record(email, "inactive")
+        api_key = create_key_record(email or None, "inactive")
         key_record = get_key_record(api_key)
     else:
         api_key = key_record["api_key"]
@@ -1196,37 +1208,39 @@ async def create_checkout(req: CheckoutRequest, request: Request):
             mode="subscription",
             success_url=f"{external_base_url(request)}/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{external_base_url(request)}/?cancelled=true",
-            customer_email=email,
+            customer_email=email or None,
             client_reference_id=api_key,
-            metadata={"plan": plan, "api_key": api_key, "email": email},
+            metadata={"plan": plan, "api_key": api_key, "email": email or ""},
         )
-        await send_followup_email(
-            email,
-            "Complete your RedactAPI plan upgrade",
-            (
-                f"<h2>You're almost done</h2>"
-                f"<p>Finish checkout to activate <b>{plan}</b> plan:</p>"
-                f"<p><a href=\"{session.url}\">{session.url}</a></p>"
-                f"<p>Need help? Book kickoff: <a href=\"{CALENDLY_URL}\">{CALENDLY_URL}</a></p>"
-            ),
-        )
+        if email:
+            await send_followup_email(
+                email,
+                "Complete your RedactAPI plan upgrade",
+                (
+                    f"<h2>You're almost done</h2>"
+                    f"<p>Finish checkout to activate <b>{plan}</b> plan:</p>"
+                    f"<p><a href=\"{session.url}\">{session.url}</a></p>"
+                    f"<p>Need help? Book kickoff: <a href=\"{CALENDLY_URL}\">{CALENDLY_URL}</a></p>"
+                ),
+            )
         await send_followup_email(
             FOLLOWUP_INBOX_EMAIL,
             f"RedactAPI checkout started: {plan}",
-            (
-                f"<p><b>Checkout started</b></p>"
-                f"<p><b>Email:</b> {email}</p>"
-                f"<p><b>Plan:</b> {plan}</p>"
-                f"<p><b>API key:</b> {api_key}</p>"
-                f"<p><b>Session:</b> {session.id}</p>"
-            ),
+                (
+                    f"<p><b>Checkout started</b></p>"
+                    f"<p><b>Email:</b> {email or '-'}</p>"
+                    f"<p><b>Plan:</b> {plan}</p>"
+                    f"<p><b>API key:</b> {api_key}</p>"
+                    f"<p><b>Session:</b> {session.id}</p>"
+                ),
         )
-        schedule_abandoned_checkout_sequence(
-            session_id=session.id,
-            buyer_email=email,
-            plan=plan,
-            checkout_url=session.url,
-        )
+        if email:
+            schedule_abandoned_checkout_sequence(
+                session_id=session.id,
+                buyer_email=email,
+                plan=plan,
+                checkout_url=session.url,
+            )
         return {"checkout_url": session.url, "api_key": api_key}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1250,12 +1264,13 @@ async def checkout_start(plan: str, request: Request, email: Optional[str] = Non
         raise HTTPException(status_code=400, detail="Invalid plan")
 
     checkout_email = normalize_email(email)
-    blocked_reason = blocked_checkout_email_reason(checkout_email)
-    if blocked_reason:
-        raise HTTPException(status_code=400, detail=blocked_reason)
+    if checkout_email:
+        blocked_reason = blocked_checkout_email_reason(checkout_email)
+        if blocked_reason:
+            raise HTTPException(status_code=400, detail=blocked_reason)
 
-    existing = get_key_record_by_email(checkout_email)
-    api_key = existing.get("api_key") if existing else create_key_record(checkout_email, "inactive")
+    existing = get_key_record_by_email(checkout_email) if checkout_email else None
+    api_key = existing.get("api_key") if existing else create_key_record(checkout_email or None, "inactive")
 
     session = stripe.checkout.Session.create(
         payment_method_types=["card"],
@@ -1263,27 +1278,28 @@ async def checkout_start(plan: str, request: Request, email: Optional[str] = Non
         mode="subscription",
         success_url=f"{external_base_url(request)}/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{external_base_url(request)}/?cancelled=true",
-        customer_email=checkout_email,
+        customer_email=checkout_email or None,
         client_reference_id=api_key,
         metadata={
             "plan": plan_value,
             "product": "redactapi",
             "source": "checkout_start",
-            "email": checkout_email,
+            "email": checkout_email or "",
             "api_key": api_key,
         },
         allow_promotion_codes=True,
     )
-    await send_followup_email(
-        checkout_email,
-        "Complete your RedactAPI checkout",
-        (
-            f"<h2>Your checkout is ready</h2>"
-            f"<p>Finish checkout to activate <b>{plan_value}</b>:</p>"
-            f"<p><a href=\"{session.url}\">{session.url}</a></p>"
-            f"<p>Need help? Book kickoff: <a href=\"{CALENDLY_URL}\">{CALENDLY_URL}</a></p>"
-        ),
-    )
+    if checkout_email:
+        await send_followup_email(
+            checkout_email,
+            "Complete your RedactAPI checkout",
+            (
+                f"<h2>Your checkout is ready</h2>"
+                f"<p>Finish checkout to activate <b>{plan_value}</b>:</p>"
+                f"<p><a href=\"{session.url}\">{session.url}</a></p>"
+                f"<p>Need help? Book kickoff: <a href=\"{CALENDLY_URL}\">{CALENDLY_URL}</a></p>"
+            ),
+        )
     return RedirectResponse(url=session.url, status_code=303)
 
 
@@ -1483,6 +1499,14 @@ async def payment_success_page(session_id: str = ""):
       <p id="status-text" class="status">Verifying payment...</p>
       <p id="detail-text">Session: <code>{safe_session or "missing"}</code></p>
       <p>Your API key is delivered to the checkout email when payment completes.</p>
+      <div style="margin-top:12px;padding:10px;border:1px dashed #2d567d;border-radius:10px;background:#0b1f35;">
+        <p style="margin:0 0 8px;"><b>Next 10 minutes:</b></p>
+        <ol style="margin:0;padding-left:18px;color:#d3e7fb;line-height:1.5;">
+          <li>Stripe payment verifies automatically on this page.</li>
+          <li>Activation email is sent once verification completes.</li>
+          <li>Open docs and run your first redaction call right away.</li>
+        </ol>
+      </div>
       <div class="actions">
         <a class="btn btn-primary" href="/docs">Open Docs</a>
         <a class="btn btn-muted" href="/">Back to Home</a>

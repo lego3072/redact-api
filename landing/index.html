@@ -368,7 +368,7 @@
 
 <section class="container">
     <div class="checkout-email-bar">
-        <label for="checkout-email">Work email for instant activation</label>
+        <label for="checkout-email">Optional email for instant key delivery</label>
         <input id="checkout-email" type="email" placeholder="you@company.com" autocomplete="email" />
     </div>
 </section>
@@ -745,20 +745,13 @@ function wireCheckoutLinks() {
     links.forEach((link) => {
         link.addEventListener('click', (e) => {
             const email = resolveCheckoutEmail();
-            if (!email) {
-                e.preventDefault();
-                alert('Enter your work email above to continue checkout.');
-                const input = document.getElementById('checkout-email');
-                if (input) input.focus();
-                return;
-            }
             const raw = link.getAttribute('href') || '';
             if (!raw) return;
             try {
                 const u = new URL(raw, window.location.origin);
-                if (u.hostname.includes('buy.stripe.com')) {
+                if (email && u.hostname.includes('buy.stripe.com')) {
                     u.searchParams.set('prefilled_email', email);
-                } else if (u.pathname.includes('/api/checkout/start')) {
+                } else if (email && u.pathname.includes('/api/checkout/start')) {
                     u.searchParams.set('email', email);
                 }
                 link.setAttribute('href', u.toString());
