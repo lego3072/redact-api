@@ -69,7 +69,7 @@ It supports two paths: self-setup monthly plans or done-for-you onboarding.
 - AI plugin manifest: {{BASE_URL}}/.well-known/ai-plugin.json
 
 ## DataWeave Agent Bundle
-- ExtractAPI: https://extractapi.net (document extraction, from $49/month)
+- ExtractAPI: https://extractapi.net (document extraction, from $199/month)
 - RedactAPI: {{BASE_URL}} (PII/PHI redaction, from $79/month)
 - CheckAPI: https://checkapi.co (compliance validation, from $29/month)
 - Agent Router: https://get-agent-router.com (service routing + paid handoff, from $499/month)
