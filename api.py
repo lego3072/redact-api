@@ -814,7 +814,7 @@ async def privacy_page():
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Privacy Policy | RedactAPI</title>
-  <meta name="description" content="Privacy Policy for RedactAPI, a DataWeaveAI company." />
+  <meta name="description" content="Privacy Policy for RedactAPI, a DataWeave INC portfolio company." />
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background: #07111f; color: #e6edf7; }
     .wrap { max-width: 820px; margin: 0 auto; padding: 24px 16px 40px; }
@@ -830,7 +830,7 @@ async def privacy_page():
       <p>We use trusted processors for payments, infrastructure, and notifications. We do not sell personal data.</p>
       <p>Contact: joseph@dataweaveai.com</p>
       <p><a href="/">Back to RedactAPI</a></p>
-      <p style="font-size:12px;color:#9ab0d1;">RedactAPI is a DataWeaveAI company.</p>
+      <p style="font-size:12px;color:#9ab0d1;">RedactAPI is a DataWeave INC portfolio company.</p>
     </div>
   </div>
 </body>
@@ -849,7 +849,7 @@ async def terms_page():
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Terms of Service | RedactAPI</title>
-  <meta name="description" content="Terms of Service for RedactAPI, a DataWeaveAI company." />
+  <meta name="description" content="Terms of Service for RedactAPI, a DataWeave INC portfolio company." />
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background: #07111f; color: #e6edf7; }
     .wrap { max-width: 820px; margin: 0 auto; padding: 24px 16px 40px; }
@@ -866,7 +866,7 @@ async def terms_page():
       <p>Paid plans and setup services follow Stripe checkout terms and renewal settings.</p>
       <p>Contact: joseph@dataweaveai.com</p>
       <p><a href="/">Back to RedactAPI</a></p>
-      <p style="font-size:12px;color:#9ab0d1;">RedactAPI is a DataWeaveAI company.</p>
+      <p style="font-size:12px;color:#9ab0d1;">RedactAPI is a DataWeave INC portfolio company.</p>
     </div>
   </div>
 </body>
@@ -1554,7 +1554,7 @@ async def agent_offer(request: Request):
     base = external_base_url(request)
     return {
         "name": "RedactAPI",
-        "company": "DataWeaveAI company",
+        "company": "DataWeave INC portfolio company",
         "url": base,
         "product_type": "PII/PHI redaction infrastructure",
         "value_proposition": (

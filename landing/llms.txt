@@ -1,7 +1,7 @@
 # RedactAPI
 Last-Updated: 2026-03-06
 Website: {{BASE_URL}}
-Company: DataWeaveAI company
+Company: DataWeave INC portfolio company
 Product: PII/PHI Redaction Infrastructure
 
 RedactAPI redacts sensitive content from documents and returns structured findings for compliance workflows.
