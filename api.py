@@ -450,6 +450,56 @@ def increment_usage(api_key: str, pages: int = 1):
     elif api_key in memory_keys:
         memory_keys[api_key]["pages_used"] += pages
 
+
+def reserve_usage(api_key: str, pages: int = 1) -> dict:
+    pages = max(1, int(pages or 1))
+    record = get_key_record(api_key)
+    if not record:
+        raise HTTPException(status_code=401, detail="Invalid API key.")
+
+    check_and_reset_usage(record, api_key)
+    record = get_key_record(api_key)
+    if not record:
+        raise HTTPException(status_code=401, detail="Invalid API key.")
+
+    plan = (record.get("plan") or "").strip().lower()
+    if plan not in PAID_PLANS:
+        raise HTTPException(status_code=402, detail="Paid plan required")
+
+    limit = int(plan_limits_for(plan)["pages_per_month"])
+    conn = get_db()
+    if conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE api_keys
+            SET pages_used = pages_used + %s
+            WHERE api_key = %s
+              AND pages_used + %s <= %s
+            RETURNING pages_used
+            """,
+            (pages, api_key, pages, limit),
+        )
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Monthly limit reached ({limit} pages on {plan} plan). Upgrade at {BASE_URL}/#pricing",
+            )
+        used_after = int(row[0])
+    else:
+        used = int(record.get("pages_used", 0))
+        if used + pages > limit:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Monthly limit reached ({limit} pages on {plan} plan). Upgrade at {BASE_URL}/#pricing",
+            )
+        memory_keys[api_key]["pages_used"] = used + pages
+        used_after = int(memory_keys[api_key]["pages_used"])
+
+    return {"plan": plan, "pages_used": used_after, "pages_limit": limit}
+
 def check_and_reset_usage(record: dict, api_key: str):
     reset_at = record.get("pages_reset_at")
     if reset_at and datetime.now(timezone.utc) - reset_at.replace(tzinfo=timezone.utc) > timedelta(days=30):
@@ -941,11 +991,11 @@ async def redact_document(
     # Parse document
     text, page_count, doc_type = parse_document(content, file.filename or "document", file.content_type or "")
 
+    # Reserve quota before expensive model execution.
+    reserve_usage(api_key, page_count)
+
     # Redact with Claude
     result = await redact_with_claude(text, cat_list, pattern_list)
-
-    # Record usage
-    increment_usage(api_key, page_count)
 
     # Log redaction
     pii_count = result.get("summary", {}).get("total_pii_count", len(result.get("pii_found", [])))
@@ -992,6 +1042,7 @@ async def batch_redact(
 
     results = []
     total_pages = 0
+    prepared_docs = []
 
     for f in files:
         try:
@@ -1002,25 +1053,47 @@ async def batch_redact(
 
             text, page_count, doc_type = parse_document(content, f.filename or "document", f.content_type or "")
             total_pages += page_count
-            result = await redact_with_claude(text, cat_list, pattern_list)
-
-            pii_count = result.get("summary", {}).get("total_pii_count", len(result.get("pii_found", [])))
-            found_categories = result.get("summary", {}).get("categories_found", [])
-            log_redaction(api_key, f.filename or "document", doc_type, pii_count, found_categories, page_count)
-
-            results.append({
-                "filename": f.filename,
-                "success": True,
-                "document_type": doc_type,
-                "pages_processed": page_count,
-                "redacted_text": result.get("redacted_text", ""),
-                "pii_found": result.get("pii_found", []),
-                "summary": result.get("summary", {}),
-            })
+            prepared_docs.append(
+                {
+                    "filename": f.filename,
+                    "text": text,
+                    "doc_type": doc_type,
+                    "page_count": page_count,
+                }
+            )
         except Exception as e:
             results.append({"filename": f.filename, "success": False, "error": str(e)})
 
-    increment_usage(api_key, total_pages)
+    if total_pages > 0:
+        reserve_usage(api_key, total_pages)
+
+    for doc in prepared_docs:
+        try:
+            result = await redact_with_claude(doc["text"], cat_list, pattern_list)
+            pii_count = result.get("summary", {}).get("total_pii_count", len(result.get("pii_found", [])))
+            found_categories = result.get("summary", {}).get("categories_found", [])
+            log_redaction(
+                api_key,
+                doc["filename"] or "document",
+                doc["doc_type"],
+                pii_count,
+                found_categories,
+                doc["page_count"],
+            )
+
+            results.append(
+                {
+                    "filename": doc["filename"],
+                    "success": True,
+                    "document_type": doc["doc_type"],
+                    "pages_processed": doc["page_count"],
+                    "redacted_text": result.get("redacted_text", ""),
+                    "pii_found": result.get("pii_found", []),
+                    "summary": result.get("summary", {}),
+                }
+            )
+        except Exception as e:
+            results.append({"filename": doc["filename"], "success": False, "error": str(e)})
 
     return {"success": True, "files_processed": len(results), "total_pages": total_pages, "results": results}
 
