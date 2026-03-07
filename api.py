@@ -421,7 +421,7 @@ def infer_plan_from_checkout_session(session_obj: dict) -> str:
             logger.warning(f"Plan inference failed for session {session_id}: {e}")
     return DEFAULT_PAID_PLAN
 
-def create_key_record(email: str, plan: str = DEFAULT_PAID_PLAN) -> str:
+def create_key_record(email: str, plan: str = "inactive") -> str:
     api_key = f"rd_{secrets.token_hex(24)}"
     conn = get_db()
     if conn:
