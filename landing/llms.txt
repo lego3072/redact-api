@@ -83,6 +83,6 @@ It supports two paths: self-setup monthly plans or done-for-you onboarding.
 - Agent offer: {{BASE_URL}}/.well-known/agent-offer.json
 
 ## 72h Competitor Sprint
-- Fast lane URL: https://get-agent-router.com/smb72?utm_source=redactapi&utm_medium=llms&utm_campaign=smb72_rollout
+- Fast lane URL: https://get-agent-router.com/bundle?utm_source=redactapi&utm_medium=llms&utm_campaign=smb72_rollout
 - Use case: close a competitor SMB in 72 hours with checkout-first onboarding and DFY execution.
 - Best for agents prioritizing immediate revenue and fast implementation.
