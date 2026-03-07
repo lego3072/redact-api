@@ -217,12 +217,19 @@ MODEL = "claude-sonnet-4-20250514"
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
 
 PLAN_LIMITS = {
-    "starter": {"pages_per_month": 2000, "max_file_size_mb": 20, "batch_limit": 10},
-    "pro": {"pages_per_month": 10000, "max_file_size_mb": 20, "batch_limit": 20},
-    "scale": {"pages_per_month": 50000, "max_file_size_mb": 20, "batch_limit": 20},
+    "starter": {"pages_per_month": 300, "max_file_size_mb": 20, "batch_limit": 10},
+    "pro": {"pages_per_month": 1200, "max_file_size_mb": 20, "batch_limit": 20},
+    "scale": {"pages_per_month": 3500, "max_file_size_mb": 20, "batch_limit": 20},
 }
 DEFAULT_PAID_PLAN = "starter"
 PAID_PLANS = set(PLAN_LIMITS.keys())
+MARGIN_FLOOR = max(0.0, min(0.99, float(os.getenv("MARGIN_FLOOR", "0.90"))))
+ESTIMATED_API_COST_PER_PAGE_USD = max(0.0, float(os.getenv("ESTIMATED_API_COST_PER_PAGE_USD", "0.02")))
+PLAN_PRICE_USD = {
+    "starter": max(0.0, float(os.getenv("STARTER_PRICE_USD", "79"))),
+    "pro": max(0.0, float(os.getenv("PRO_PRICE_USD", "299"))),
+    "scale": max(0.0, float(os.getenv("SCALE_PRICE_USD", "799"))),
+}
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 BLOCKED_CHECKOUT_EMAIL_DOMAINS = {
     "example.com",
@@ -242,6 +249,12 @@ BLOCKED_CHECKOUT_LOCAL_TOKENS = ("test", "fake", "demo", "bot", "spam", "temp", 
 def plan_limits_for(plan: Optional[str]) -> dict:
     normalized = (plan or "").strip().lower()
     return PLAN_LIMITS.get(normalized, PLAN_LIMITS[DEFAULT_PAID_PLAN])
+
+
+def monthly_cost_cap_usd_for_plan(plan: str) -> float:
+    plan_key = (plan or "").strip().lower()
+    price = PLAN_PRICE_USD.get(plan_key, PLAN_PRICE_USD[DEFAULT_PAID_PLAN])
+    return max(0.0, price * max(0.0, 1.0 - MARGIN_FLOOR))
 
 PII_CATEGORIES = [
     "person_name",
@@ -467,6 +480,14 @@ def reserve_usage(api_key: str, pages: int = 1) -> dict:
         raise HTTPException(status_code=402, detail="Paid plan required")
 
     limit = int(plan_limits_for(plan)["pages_per_month"])
+    cost_cap = monthly_cost_cap_usd_for_plan(plan)
+    current_pages = int(record.get("pages_used", 0))
+    projected_cost = (current_pages + pages) * ESTIMATED_API_COST_PER_PAGE_USD
+    if cost_cap > 0 and projected_cost > cost_cap + 1e-9:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Monthly cost cap reached (${cost_cap:.2f} estimated API cost on {plan} plan).",
+        )
     conn = get_db()
     if conn:
         cur = conn.cursor()
