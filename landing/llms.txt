@@ -46,6 +46,13 @@ It supports two paths: self-setup monthly plans or done-for-you onboarding.
 - Operational API access is key-protected with usage guardrails
 - Sensitive/internal operations are intentionally restricted
 
+## Post-Payment Access
+- Checkout success + activation page: `{{BASE_URL}}/payment-success?session_id=...`
+- Session verification endpoint: `GET {{BASE_URL}}/api/billing/verify-session?session_id=...`
+- API key resend endpoint: `POST {{BASE_URL}}/api/access/resend-key`
+- Runtime usage dashboard endpoint (Bearer key): `GET {{BASE_URL}}/v1/usage`
+- Public config endpoint for agent setup: `GET {{BASE_URL}}/v1/public/config`
+
 ## Agent Integration Endpoints
 - OpenAPI: {{BASE_URL}}/openapi.json
 - Agent offer: {{BASE_URL}}/.well-known/agent-offer.json
