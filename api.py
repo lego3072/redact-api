@@ -128,6 +128,7 @@ def schedule_abandoned_checkout_sequence(*, session_id: str, buyer_email: str, p
         return
 
     async def _runner() -> None:
+        fresh_checkout_url = f"{managed_checkout_url(plan)}&email={urllib.parse.quote_plus((buyer_email or '').strip().lower())}"
         touchpoints = [
             (10 * 60, "10-minute"),
             (6 * 60 * 60, "6-hour"),
@@ -152,6 +153,9 @@ def schedule_abandoned_checkout_sequence(*, session_id: str, buyer_email: str, p
                     f"<h2>Your checkout is still open</h2>"
                     f"<p>This is your {label} reminder. Complete checkout to activate <b>{plan}</b>:</p>"
                     f"<p><a href=\"{checkout_url}\">{checkout_url}</a></p>"
+                    f"<p>If that link fails, use this fresh checkout link: <a href=\"{fresh_checkout_url}\">{fresh_checkout_url}</a></p>"
+                    f"<p><b>Why teams close quickly:</b> direct Stripe checkout, access key delivery, and activation target under 60 seconds.</p>"
+                    f"<p><b>Priority window:</b> complete in the next 24 hours for fastest onboarding queue.</p>"
                     f"<p>Need help? Book kickoff: <a href=\"{CALENDLY_URL}\">{CALENDLY_URL}</a></p>"
                 ),
             )
