@@ -219,6 +219,20 @@ PLAN_LIMITS = {
 }
 DEFAULT_PAID_PLAN = "starter"
 PAID_PLANS = set(PLAN_LIMITS.keys())
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+BLOCKED_CHECKOUT_EMAIL_DOMAINS = {
+    "example.com",
+    "example.org",
+    "example.net",
+    "mailinator.com",
+    "guerrillamail.com",
+    "tempmail.com",
+    "10minutemail.com",
+    "yopmail.com",
+    "trashmail.com",
+    "sharklasers.com",
+}
+BLOCKED_CHECKOUT_LOCAL_TOKENS = ("test", "fake", "demo", "bot", "spam", "temp", "example")
 
 
 def plan_limits_for(plan: Optional[str]) -> dict:
@@ -315,6 +329,24 @@ def init_db():
 # --- In-memory fallback ---
 memory_keys: dict = {}
 memory_logs: list = []
+
+
+def normalize_email(value: Optional[str]) -> str:
+    return (value or "").strip().lower()
+
+
+def blocked_checkout_email_reason(value: str) -> Optional[str]:
+    normalized = normalize_email(value)
+    if not EMAIL_RE.match(normalized):
+        return "Valid email required"
+    local, _, domain = normalized.partition("@")
+    if not local or not domain:
+        return "Valid email required"
+    if domain in BLOCKED_CHECKOUT_EMAIL_DOMAINS or domain.endswith(".invalid"):
+        return "Use a real work email to continue"
+    if any(token in local for token in BLOCKED_CHECKOUT_LOCAL_TOKENS):
+        return "Test/disposable emails are blocked"
+    return None
 
 def get_key_record(api_key: str) -> Optional[dict]:
     conn = get_db()
@@ -1032,9 +1064,10 @@ async def create_checkout(req: CheckoutRequest, request: Request):
     if not STRIPE_SECRET_KEY:
         raise HTTPException(status_code=503, detail="Billing not configured")
 
-    email = (req.email or "").strip().lower()
-    if not email or "@" not in email:
-        raise HTTPException(status_code=400, detail="Valid email required")
+    email = normalize_email(req.email)
+    blocked_reason = blocked_checkout_email_reason(email)
+    if blocked_reason:
+        raise HTTPException(status_code=400, detail=blocked_reason)
 
     price_map = {
         "starter": STRIPE_STARTER_MONTHLY,
@@ -1097,7 +1130,7 @@ async def create_checkout(req: CheckoutRequest, request: Request):
 
 
 @app.get("/api/checkout/start")
-async def checkout_start(plan: str, request: Request):
+async def checkout_start(plan: str, request: Request, email: Optional[str] = None):
     if not SELF_SERVE_CHECKOUT_ENABLED:
         raise HTTPException(status_code=403, detail="Self-serve checkout is disabled")
     if not STRIPE_SECRET_KEY:
@@ -1113,14 +1146,40 @@ async def checkout_start(plan: str, request: Request):
     if not price_id:
         raise HTTPException(status_code=400, detail="Invalid plan")
 
+    checkout_email = normalize_email(email)
+    blocked_reason = blocked_checkout_email_reason(checkout_email)
+    if blocked_reason:
+        raise HTTPException(status_code=400, detail=blocked_reason)
+
+    existing = get_key_record_by_email(checkout_email)
+    api_key = existing.get("api_key") if existing else create_key_record(checkout_email, "inactive")
+
     session = stripe.checkout.Session.create(
         payment_method_types=["card"],
         line_items=[{"price": price_id, "quantity": 1}],
         mode="subscription",
         success_url=f"{external_base_url(request)}/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{external_base_url(request)}/?cancelled=true",
-        metadata={"plan": plan_value, "product": "redactapi", "source": "checkout_start"},
+        customer_email=checkout_email,
+        client_reference_id=api_key,
+        metadata={
+            "plan": plan_value,
+            "product": "redactapi",
+            "source": "checkout_start",
+            "email": checkout_email,
+            "api_key": api_key,
+        },
         allow_promotion_codes=True,
+    )
+    await send_followup_email(
+        checkout_email,
+        "Complete your RedactAPI checkout",
+        (
+            f"<h2>Your checkout is ready</h2>"
+            f"<p>Finish checkout to activate <b>{plan_value}</b>:</p>"
+            f"<p><a href=\"{session.url}\">{session.url}</a></p>"
+            f"<p>Need help? Book kickoff: <a href=\"{CALENDLY_URL}\">{CALENDLY_URL}</a></p>"
+        ),
     )
     return RedirectResponse(url=session.url, status_code=303)
 
@@ -1271,9 +1330,10 @@ class AccessRecoveryRequest(BaseModel):
 
 @app.post("/api/access/resend-key")
 async def resend_access_key(req: AccessRecoveryRequest):
-    email = (req.email or "").strip().lower()
-    if not email or "@" not in email:
-        raise HTTPException(status_code=400, detail="Valid email required")
+    email = normalize_email(req.email)
+    blocked_reason = blocked_checkout_email_reason(email)
+    if blocked_reason:
+        raise HTTPException(status_code=400, detail=blocked_reason)
 
     record = get_key_record_by_email(email)
     if record:
