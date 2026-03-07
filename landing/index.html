@@ -166,6 +166,32 @@
         .bundle-strip small { display: block; font-size: 12px; color: var(--muted); }
         .bundle-strip .actions { display: flex; flex-wrap: wrap; gap: 8px; }
         .bundle-strip .actions a { padding: 7px 12px; font-size: 12px; border-radius: 8px; }
+        .checkout-email-bar {
+            max-width: 1040px;
+            margin: 74px auto 0;
+            padding: 10px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            background: rgba(17, 24, 39, 0.92);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        .checkout-email-bar label {
+            font-size: 0.86rem;
+            color: var(--muted);
+            min-width: 230px;
+        }
+        .checkout-email-bar input {
+            flex: 1 1 260px;
+            min-width: 220px;
+            background: #0f172a;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 9px 11px;
+        }
 
         .roi-proof-shared {
             margin: 14px auto 0;
@@ -339,6 +365,13 @@
         </div>
     </div>
 </nav>
+
+<section class="container">
+    <div class="checkout-email-bar">
+        <label for="checkout-email">Work email for instant activation</label>
+        <input id="checkout-email" type="email" placeholder="you@company.com" autocomplete="email" />
+    </div>
+</section>
 
 <section class="container">
     <div class="bundle-strip">
@@ -663,8 +696,8 @@ console.log(data.summary);
         <h2 class="section-title">Ready to Launch Redaction Revenue?</h2>
         <p style="color:var(--muted);max-width:720px;margin:0 auto 20px;">Fast path: pay monthly and self-implement. Upgrade path: add setup and we implement for you.</p>
         <div class="hero-actions">
-            <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary">Start Monthly</a>
-            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline">Add DFY Setup</a>
+            <a href="{{MONTHLY_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-primary checkout-link" data-plan="monthly">Start Monthly</a>
+            <a href="{{SETUP_PAYMENT_LINK}}" target="_blank" rel="noreferrer" class="btn btn-outline checkout-link" data-plan="setup">Add DFY Setup</a>
             <a href="{{CALENDLY_URL}}" target="_blank" rel="noreferrer" class="btn btn-outline">Need Help? Book Call</a>
         </div>
     </div>
@@ -696,6 +729,43 @@ function showTab(tab, button) {
     }
 }
 
+const CHECKOUT_EMAIL_KEY = 'redact_checkout_email';
+function resolveCheckoutEmail() {
+    const input = document.getElementById('checkout-email');
+    const value = (input && input.value ? input.value : localStorage.getItem(CHECKOUT_EMAIL_KEY) || '').trim().toLowerCase();
+    if (!value || !value.includes('@')) return '';
+    localStorage.setItem(CHECKOUT_EMAIL_KEY, value);
+    if (input && !input.value) input.value = value;
+    return value;
+}
+
+function wireCheckoutLinks() {
+    const links = document.querySelectorAll('.checkout-link');
+    links.forEach((link) => {
+        link.addEventListener('click', (e) => {
+            const email = resolveCheckoutEmail();
+            if (!email) {
+                e.preventDefault();
+                alert('Enter your work email above to continue checkout.');
+                const input = document.getElementById('checkout-email');
+                if (input) input.focus();
+                return;
+            }
+            const raw = link.getAttribute('href') || '';
+            if (!raw) return;
+            try {
+                const u = new URL(raw, window.location.origin);
+                if (u.hostname.includes('buy.stripe.com')) {
+                    u.searchParams.set('prefilled_email', email);
+                } else if (u.pathname.includes('/api/checkout/start')) {
+                    u.searchParams.set('email', email);
+                }
+                link.setAttribute('href', u.toString());
+            } catch (_) {}
+        });
+    });
+}
+
 function installRetargetingPixels() {
     const metaId = window.META_PIXEL_ID || '';
     if (metaId) {
@@ -721,6 +791,7 @@ function installRetargetingPixels() {
 }
 
 installRetargetingPixels();
+wireCheckoutLinks();
 </script>
 
 <!-- COMPETITOR_SPRINT_WIDGET_START -->
