@@ -505,12 +505,15 @@ def managed_checkout_url(plan: str, request: Optional[Request] = None) -> str:
 
 
 def payment_config(request: Optional[Request] = None) -> dict:
+    instant_activation_ready = bool(STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET and RESEND_API_KEY)
     return {
         "payment_ready": not SETUP_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_")
         and not MONTHLY_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_")
         and not STARTER_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_")
         and not PRO_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_")
         and not SCALE_PAYMENT_LINK.startswith("https://buy.stripe.com/replace_"),
+        "instant_activation_ready": instant_activation_ready,
+        "activation_target_seconds": 60,
         "setup_payment_link": SETUP_PAYMENT_LINK,
         "monthly_payment_link": managed_checkout_url("starter", request),
         "starter_payment_link": managed_checkout_url("starter", request),
@@ -772,11 +775,13 @@ async def startup():
 # --- Health ---
 @app.get("/health")
 async def health():
+    cfg = payment_config()
     return {
         "status": "ok",
         "service": "redactapi",
         "version": "1.0.0",
-        "payment_ready": payment_config()["payment_ready"],
+        "payment_ready": cfg["payment_ready"],
+        "instant_activation_ready": cfg["instant_activation_ready"],
         "time": datetime.now(timezone.utc).isoformat(),
     }
 
