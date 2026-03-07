@@ -610,29 +610,6 @@ console.log(data.summary);
     </div>
 </section>
 
-<section class="how-section" id="access">
-    <div class="container">
-        <h2 class="section-title">What You Get After Payment</h2>
-        <div class="steps">
-            <div class="step">
-                <div class="step-number">1</div>
-                <h3>Payment Verification</h3>
-                <p><strong>/payment-success</strong> verifies Stripe session status so buyers see activation progress immediately.</p>
-            </div>
-            <div class="step">
-                <div class="step-number">2</div>
-                <h3>API Key Delivery</h3>
-                <p>API key is sent to checkout email, with backup recovery through <strong>/api/access/resend-key</strong>.</p>
-            </div>
-            <div class="step">
-                <div class="step-number">3</div>
-                <h3>Runtime Dashboard</h3>
-                <p>Customers use <strong>/v1/usage</strong> with Bearer key to track limits, usage, and upgrade state.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
 <section class="how-section" id="stack">
     <div class="container">
         <h2 class="section-title">DataWeave Agent Stack</h2>
